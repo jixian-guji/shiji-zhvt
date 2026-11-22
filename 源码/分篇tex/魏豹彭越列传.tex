@@ -1,0 +1,176 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[魏豹彭越列传]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{魏豹彭越列传}{卷九十~魏豹彭越列传第三十}
+\hspace*{2em}魏豹者。故魏诸公子也。其兄魏咎。故魏时封为宁陵君。秦灭魏。迁咎为家人。陈胜之起王也。咎往从之。陈王使魏人周市徇魏地。魏地已下。欲相与立周市为魏王。周市曰。﹁天下昬乱。忠臣乃见。今天下共畔秦。其义必立魏王后乃可。﹂齐。赵使车各五十乘。立周市为魏王。市辞不受。迎魏咎於陈。五反。陈王乃遣立咎为魏王。\\
+\hspace*{2em}章邯已破陈王。乃进兵击魏王於临济。魏王乃使周市出请救於齐。楚。齐。楚遣项它。田巴将兵随市救魏。章邯遂击破杀周市等军。围临济。咎为其民约降。约定。咎自烧杀。\\
+\hspace*{2em}魏豹亡走楚。楚怀王予魏豹数千人。复徇魏地。项羽已破秦。降章邯。豹下魏二十馀城。立豹为魏王。豹引精兵从项羽入关。汉元年。项羽封诸侯。欲有梁地。乃徙魏王豹於河东。都平阳。为西魏王。\\
+\hspace*{2em}汉王还定三秦。渡临晋。魏王豹以国属焉。遂从击楚於彭城。汉败。还至荥阳。豹请归视亲病。至国。即绝河津畔汉。汉王闻魏豹反。方东忧楚。未及击。谓郦生曰。﹁缓颊往说魏豹。能下之。吾以万户封若。﹂郦生说豹。豹谢曰。﹁人生一世间。如白驹过隙耳。今汉王慢而侮人。骂詈诸侯群臣如骂奴耳。非有上下礼节也。吾不忍复见也。﹂於是汉王遣韩信击虏豹於河东。传诣荥阳。以豹国为郡。汉王令豹守荥阳。楚围之急。周苛遂杀魏豹。\\
+\hspace*{2em}彭越者。昌邑人也。字仲。常渔钜野泽中。为群盗。陈胜。项梁之起。少年或谓越曰。﹁诸豪桀相立畔秦。仲可以来。亦效之。﹂彭越曰。﹁两龙方斗。且待之。﹂\\
+\hspace*{2em}居岁馀。泽间少年相聚百馀人。往从彭越。曰。﹁请仲为长。﹂越谢曰。﹁臣不原与诸君。﹂少年彊请。乃许。与期旦日日出会。后期者斩。旦日日出。十馀人后。后者至日中。於是越谢曰。﹁臣老。诸君彊以为长。今期而多后。不可尽诛。诛最后者一人。﹂令校长斩之。皆笑曰。﹁何至是。请后不敢。﹂於是越乃引一人斩之。设坛祭。乃令徒属。徒属皆大惊。畏越。莫敢仰视。乃行略地。收诸侯散卒。得千馀人。\\
+\hspace*{2em}沛公之从砀北击昌邑。彭越助之。昌邑未下。沛公引兵西。彭越亦将其众居钜野中。收魏散卒。项籍入关。王诸侯。还归。彭越众万馀人毋所属。汉元年秋。齐王田荣畔项王。乃使人赐彭越将军印。使下济阴以击楚。楚命萧公角将兵击越。越大破楚军。汉王二年春。与魏王豹及诸侯东击楚。彭越将其兵三万馀人归汉於外黄。汉王曰。﹁彭将军收魏地得十馀城。欲急立魏后。今西魏王豹亦魏王咎从弟也。真魏后。﹂乃拜彭越为魏相国。擅将其兵。略定梁地。\\
+\hspace*{2em}汉王之败彭城解而西也。彭越皆复亡其所下城。独将其兵北居河上。汉王三年。彭越常往来为汉游兵。击楚。绝其后粮於梁地。汉四年冬。项王与汉王相距荥阳。彭越攻下睢阳。外黄十七城。项王闻之。乃使曹咎守成皋。自东收彭越所下城邑。皆复为楚。越将其兵北走穀城。汉五年秋。项王之南走阳夏。彭越复下昌邑旁二十馀城。得穀十馀万斛。以给汉王食。\\
+\hspace*{2em}汉王败。使使召彭越并力击楚。越曰。﹁魏地初定。尚畏楚。未可去。﹂汉王追楚。为项籍所败固陵。乃谓留侯曰。﹁诸侯兵不从。为之柰何。﹂留侯曰。﹁齐王信之立。非君王之意。信亦不自坚。彭越本定梁地。功多。始君王以魏豹故。拜彭越为魏相国。今豹死毋后。且越亦欲王。而君王不蚤定。与此两国约。即胜楚。睢阳以北至穀城。皆以王彭相国。从陈以东傅海。与齐王信。齐王信家在楚。此其意欲复得故邑。君王能出捐此地许二人。二人今可致。即不能。事未可知也。﹂於是汉王乃发使使彭越。如留侯策。使者至。彭越乃悉引兵会垓下。遂破楚。项籍已死。春。立彭越为梁王。都定陶。\\
+\hspace*{2em}六年。朝陈。九年。十年。皆来朝长安。\\
+\hspace*{2em}十年秋。陈豨反代地。高帝自往击。至邯郸。徵兵梁王。梁王称病。使将将兵诣邯郸。高帝怒。使人让梁王。梁王恐。欲自往谢。其将扈辄曰。﹁王始不往。见让而往。往则为禽矣。不如遂发兵反。﹂梁王不听。称病。梁王怒其太仆。欲斩之。太仆亡走汉。告梁王与扈辄谋反。於是上使使掩梁王。梁王不觉。捕梁王。囚之雒阳。有司治反形己具。请论如法。上赦以为庶人。传处蜀青衣。西至郑。逢吕后从长安来。欲之雒阳。道见彭王。彭王为吕后泣涕。自言无罪。原处故昌邑。吕后许诺。与俱东至雒阳。吕后白上曰。﹁彭王壮士。今徙之蜀。此自遗患。不如遂诛之。妾谨与俱来。﹂於是吕后乃令其舍人彭越复谋反。廷尉王恬开奏请族之。上乃可。遂夷越宗族。国除。\\
+\hspace*{2em}太史公曰。魏豹。彭越虽故贱。然已席卷千里。南面称孤。喋血乘胜日有闻矣。怀畔逆之意。及败。不死而虏囚。身被刑戮。何哉。中材已上且羞其行。况王者乎。彼无异故。智略绝人。独患无身耳。得摄尺寸之柄。其云蒸龙变。欲有所会其度。以故幽囚而不辞云。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 魏咎兄弟。因时而王。豹后属楚。其国遂亡。\hfil}\linebreak
+\hbox to \hsize{\hfil 仲起昌邑。归汉外黄。往来声援。再续军粮。\hfil}\linebreak
+\hbox to \hsize{\hfil 徵兵不往。菹醢何伤。\hfil}%
+\par}
+\end{document}

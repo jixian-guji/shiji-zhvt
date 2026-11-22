@@ -1,0 +1,184 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[孝景本纪]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{孝景本纪}{卷十一~孝景本纪第十一}
+\hspace*{2em}孝景皇帝者。孝文之中子也。母窦太后。孝文在代时。前有三男。及窦太后得幸。前后死。及三子更死。故孝景得立。\\
+\hspace*{2em}元年四月乙卯。赦天下。乙巳。赐民爵一级。五月。除田半租。为孝文立太宗庙。令群臣无朝贺。匈奴入代。与约和亲。\\
+\hspace*{2em}二年春。封故相国萧何孙系为武陵侯。男子二十而得傅。四月壬午。孝文太后崩。广川。长沙王皆之国。丞相申屠嘉卒。八月。以御史大夫开封侯陶青为丞相。彗星出东北。秋。衡山雨雹。大者五寸。深者二尺。荧惑逆行。守北辰。月出北辰间。岁星逆行天廷中。置南陵及内史。祋祤为县。\\
+\hspace*{2em}三年正月乙巳。赦天下。长星出西方。天火燔雒阳东宫大殿城室。吴王濞。楚王戊。赵王遂。胶西王卬。济南王辟光。菑川王贤。胶东王雄渠反。发兵西乡。天子为诛晁错。遣袁盎谕告。不止。遂西围梁。上乃遣大将军窦婴。太尉周亚夫将兵诛之。六月乙亥。赦亡军及楚元王子蓺等与谋反者。封大将军窦婴为魏其侯。立楚元王子平陆侯礼为楚王。立皇子端为胶西王。子胜为中山王。徙济北王志为菑川王。淮阳王余为鲁王。汝南王非为江都王。齐王将庐。燕王嘉皆薨。\\
+\hspace*{2em}四年夏。立太子。立皇子彻为胶东王。六月甲戌。赦天下。后九月。更以易阳为阳陵。复置津关。用传出入。冬。以赵国为邯郸郡。\\
+\hspace*{2em}五年三月。作阳陵。渭桥。五月。募徙阳陵。予钱二十万。江都大暴风从西方来。坏城十二丈。丁卯。封长公主子蟜为隆虑侯。徙广川王为赵王。\\
+\hspace*{2em}六年春。封中尉绾为建陵侯。江都丞相嘉为建平侯。陇西太守浑邪为平曲侯。赵丞相嘉为江陵侯。故将军布为鄃侯。梁楚二王皆薨。后九月。伐驰道树。殖兰池。\\
+\hspace*{2em}七年冬。废栗太子为临江王。十一月晦。日有食之。春。免徒隶作阳陵者。丞相青免。二月乙巳。以太尉条侯周亚夫为丞相。四月乙巳。立胶东王太后为皇后。丁巳。立胶东王为太子。名彻。\\
+\hspace*{2em}中元年。封故御史大夫周苛孙平为绳侯。故御史大夫周昌孙左车为安阳侯。四月乙巳。赦天下。赐爵一级。除禁锢。地动。衡山。原都雨雹。大者尺八寸。\\
+\hspace*{2em}中二年二月。匈奴入燕。遂不和亲。三月。召临江王来。即死中尉府中。夏。立皇子越为广川王。子寄为胶东王。封四侯。九月甲戌。日食。\\
+\hspace*{2em}中三年冬。罢诸侯御史中丞。春。匈奴王二人率其徒来降。皆封为列侯。立皇子方乘为清河王。三月。彗星出西北。丞相周亚夫免。以御史大夫桃侯刘舍为丞相。四月。地动。九月戊戌晦。日食。军东都门外。\\
+\hspace*{2em}中四年三月。置德阳宫。大蝗。秋。赦徒作阳陵者。\\
+\hspace*{2em}中五年夏。立皇子舜为常山王。封十侯。六月丁巳。赦天下。赐爵一级。天下大潦。更命诸侯丞相曰相。秋。地动。\\
+\hspace*{2em}中六年二月己卯。行幸雍。郊见五帝。三月。雨雹。四月。梁孝王。城阳共王。汝南王皆薨。立梁孝王子明为济川王。子彭离为济东王。子定为山阳王。子不识为济阴王。梁分为五。封四侯。更命廷尉为大理。将作少府为将作大匠。主爵中尉为都尉。长信詹事为长信少府。将行为大长秋。大行为行人。奉常为太常。典客为大行。治粟内史为大农。以大内为二千石。置左右内官。属大内。七月辛亥。日食。八月。匈奴入上郡。\\
+\hspace*{2em}后元年冬。更命中大夫令为卫尉。三月丁酉。赦天下。赐爵一级。中二千石。诸侯相爵右庶长。四月。大酺。五月丙戌。地动。其蚤食时复动。上庸地动二十二日。坏城垣。七月乙巳。日食。丞相刘舍免。八月壬辰。以御史大夫绾为丞相。封建陵侯。\\
+\hspace*{2em}后二年正月。地一日三动。郅将军击匈奴。酺五日。令内史郡不得食马粟。没入县官。令徒隶衣七緵布。止马舂。为岁不登。禁天下食不造岁。省列侯遣之国。三月。匈奴入雁门。十月。租长陵田。大旱。衡山国。河东。云中郡民疫。\\
+\hspace*{2em}后三年十月。日月皆食赤五日。十二月晦。䨓。日如紫。五星逆行守太微。月贯天廷中。正月甲寅。皇太子冠。甲子。孝景皇帝崩。遗诏赐诸侯王以下至民为父后爵一级。天下户百钱。出宫人归其家。复无所与。太子即位。是为孝武皇帝。三月。封皇太后弟蚡为武安侯。弟胜为周阳侯。置阳陵。\\
+\hspace*{2em}太史公曰。汉兴。孝文施大德。天下怀安。至孝景。不复忧异姓。而晁错刻削诸侯。遂使七国俱起。合从而西乡。以诸侯太盛。而错为之不以渐也。及主父偃言之。而诸侯以弱。卒以安。安危之机。岂不以谋哉。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 景帝即位。因脩静默。勉人於农。率下以德。\hfil}\linebreak
+\hbox to \hsize{\hfil 制度斯创。礼法可则。一朝吴楚。乍起凶慝。\hfil}\linebreak
+\hbox to \hsize{\hfil 提局成衅。拒轮致惑。晁错虽诛。梁城未克。\hfil}\linebreak
+\hbox to \hsize{\hfil 条侯出将。追奔逐北。坐见枭黥。立翦牟贼。\hfil}\linebreak
+\hbox to \hsize{\hfil 如何太尉。後卒下狱。惜哉明君。斯功不录。\hfil}%
+\par}
+\end{document}

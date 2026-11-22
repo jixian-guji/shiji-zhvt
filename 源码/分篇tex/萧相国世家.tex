@@ -1,0 +1,182 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[萧相国世家]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{萧相国世家}{卷五十三~萧相国世家第二十三}
+\hspace*{2em}萧相国何者。沛丰人也。以文无害为沛主吏掾。\\
+\hspace*{2em}高祖为布衣时。何数以吏事护高祖。高祖为亭长。常左右之。高祖以吏繇咸阳。吏皆送奉钱三。何独以五。\\
+\hspace*{2em}秦御史监郡者与从事。常辨之。何乃给泗水卒史事。第一。秦御史欲入言徵何。何固请。得毋行。\\
+\hspace*{2em}及高祖起为沛公。何常为丞督事。沛公至咸阳。诸将皆争走金帛财物之府分之。何独先入收秦丞相御史律令图书藏之。沛公为汉王。以何为丞相。项王与诸侯屠烧咸阳而去。汉王所以具知天下阨塞。户口多少。彊弱之处。民所疾苦者。以何具得秦图书也。何进言韩信。汉王以信为大将军。语在淮阴侯事中。\\
+\hspace*{2em}汉王引兵东定三秦。何以丞相留守巴蜀。填抚谕告。使给军食。汉二年。汉王与诸侯击楚。何守关中。侍太子。治栎阳。为法令约束。立宗庙社稷宫室县邑。辄奏上。可。许以从事。即不及奏上。辄以便宜施行。上来以闻。关中事计户口转漕给军。汉王数失军遁去。何常兴关中卒。辄补缺。上以此专属任何关中事。\\
+\hspace*{2em}汉三年。汉王与项羽相距京索之间。上数使使劳苦丞相。鲍生谓丞相曰。﹁王暴衣露盖。数使使劳苦君者。有疑君心也。为君计。莫若遣君子孙昆弟能胜兵者悉诣军所。上必益信君。﹂於是何从其计。汉王大说。\\
+\hspace*{2em}汉五年。既杀项羽。定天下。论功行封。群臣争功。岁馀功不决。高祖以萧何功最盛。封为酂侯。所食邑多。功臣皆曰。﹁臣等身被坚执锐。多者百馀战。少者数十合。攻城略地。大小各有差。今萧何未尝有汗马之劳。徒持文墨议论。不战。顾反居臣等上。何也。﹂高帝曰。﹁诸君知猎乎。﹂曰。﹁知之。﹂﹁知猎狗乎。﹂曰。﹁知之。﹂高帝曰。﹁夫猎。追杀兽兔者狗也。而发踪指示兽处者人也。今诸君徒能得走兽耳。功狗也。至如萧何。发踪指示。功人也。且诸君独以身随我。多者两三人。今萧何举宗数十人皆随我。功不可忘也。﹂群臣皆莫敢言。\\
+\hspace*{2em}列侯毕已受封。及奏位次。皆曰。﹁平阳侯曹参身被七十创。攻城略地。功最多。宜第一。﹂上已桡功臣。多封萧何。至位次未有以复难之。然心欲何第一。关内侯鄂君进曰。﹁群臣议皆误。夫曹参虽有野战略地之功。此特一时之事。夫上与楚相距五岁。常失军亡众。逃身遁者数矣。然萧何常从关中遣军补其处。非上所诏令召。而数万众会上之乏绝者数矣。夫汉与楚相守荥阳数年。军无见粮。萧何转漕关中。给食不乏。陛下虽数亡山东。萧何常全关中以待陛下。此万世之功也。今虽亡曹参等百数。何缺於汉。汉得之不必待以全。柰何欲以一旦之功而加万世之功哉。萧何第一。曹参次之。﹂高祖曰。﹁善。﹂於是乃令萧何。赐带剑履上殿。入朝不趋。\\
+\hspace*{2em}上曰。﹁吾闻进贤受上赏。萧何功虽高。得鄂君乃益明。﹂於是因鄂君故所食关内侯邑封为安平侯。是日。悉封何父子兄弟十馀人。皆有食邑。乃益封何二千户。以帝尝繇咸阳时何送我独赢钱二也。\\
+\hspace*{2em}汉十一年。陈豨反。高祖自将。至邯郸。未罢。淮阴侯谋反关中。吕后用萧何计。诛淮阴侯。语在淮阴事中。上已闻淮阴侯诛。使使拜丞相何为相国。益封五千户。令卒五百人一都尉为相国卫。诸君皆贺。召平独吊。召平者。故秦东陵侯。秦破。为布衣。贫。种瓜於长安城东。瓜美。故世俗谓之﹁东陵瓜﹂。从召平以为名也。召平谓相国曰。﹁祸自此始矣。上暴露於外而君守於中。非被矢石之事而益君封置卫者。以今者淮阴侯新反於中。疑君心矣。夫置卫卫君。非以宠君也。原君让封勿受。悉以家私财佐军。则上心说。﹂相国从其计。高帝乃大喜。\\
+\hspace*{2em}汉十二年秋。黥布反。上自将击之。数使使问相国何为。相国为上在军。乃拊循勉力百姓。悉以所有佐军。如陈豨时。客有说相国曰。﹁君灭族不久矣。夫君位为相国。功第一。可复加哉。然君初入关中。得百姓心。十馀年矣。皆附君。常复孳孳得民和。上所为数问君者。畏君倾动关中。今君胡不多买田地。贱贳贷以自汙。上心乃安。﹂於是相国从其计。上乃大说。\\
+\hspace*{2em}上罢布军归。民道遮行上书。言相国贱彊买民田宅数千万。上至。相国谒。上笑曰。﹁夫相国乃利民。﹂民所上书皆以与相国。曰。﹁君自谢民。﹂相国因为民请曰。﹁长安地狭。上林中多空地。弃。原令民得入田。毋收稾为禽兽食。﹂上大怒曰。﹁相国多受贾人财物。乃为请吾苑。﹂乃下相国廷尉。械系之。数日。王卫尉侍。前问曰。﹁相国何大罪。陛下系之暴也。﹂上曰。﹁吾闻李斯相秦皇帝。有善归主。有恶自与。今相国多受贾竖金而为民请吾苑。以自媚於民。故系治之。﹂王卫尉曰。﹁夫职事苟有便於民而请之。真宰相事。陛下柰何乃疑相国受贾人钱乎。且陛下距楚数岁。陈豨。黥布反。陛下自将而往。当是时。相国守关中。摇足则关以西非陛下有也。相国不以此时为利。今乃利贾人之金乎。且秦以不闻其过亡天下。李斯之分过。又何足法哉。陛下何疑宰相之浅也。﹂高帝不怿。是日。使使持节赦出相国。相国年老。素恭谨。入。徒跣谢。高帝曰。﹁相国休矣。相国为民请苑。吾不许。我不过为桀纣主。而相国为贤相。吾故系相国。欲令百姓闻吾过也。﹂\\
+\hspace*{2em}何素不与曹参相能。及何病。孝惠自临视相国病。因问曰。﹁君即百岁後。谁可代君者。﹂对曰。﹁知臣莫如主。﹂孝惠曰。﹁曹参何如。﹂何顿首曰。﹁帝得之矣。臣死不恨矣。﹂\\
+\hspace*{2em}何置田宅必居穷处。为家不治垣屋。曰。﹁後世贤。师吾俭。不贤。毋为势家所夺。﹂\\
+\hspace*{2em}孝惠二年。相国何卒。谥为文终侯。\\
+\hspace*{2em}後嗣以罪失侯者四世。绝。天子辄复求何後。封续酂侯。功臣莫得比焉。\\
+\hspace*{2em}太史公曰。萧相国何於秦时为刀笔吏。录录未有奇节。及汉兴。依日月之末光。何谨守管籥。因民之疾法。顺流与之更始。淮阴。黥布等皆以诛灭。而何之勋烂焉。位冠群臣。声施後世。与闳夭。散宜生等争烈矣。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 萧何为吏。文而无害。及佐兴王。举宗从沛。\hfil}\linebreak
+\hbox to \hsize{\hfil 关中既守。转输是赖。汉军屡疲。秦兵必会。\hfil}\linebreak
+\hbox to \hsize{\hfil 约法可久。收图可大。指兽发踪。其功实最。\hfil}\linebreak
+\hbox to \hsize{\hfil 政称画一。居乃非泰。继绝宠勤。式旌砺带。\hfil}%
+\par}
+\end{document}

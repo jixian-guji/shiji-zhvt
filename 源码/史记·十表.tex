@@ -1,0 +1,505 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% xcolor 与 l3color 是两套色彩注册表，需各注册同名 sealbrown：
+%   xcolor 版 → 供 TikZ/pgf 的 fill= 读取；
+%   L3 版     → 供 cls 版框 \color_stroke:n 读取。
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 6,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[十表]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+% ★ 述赞样式：题头“索隐述赞”四字用黑体（simhei，与正文宋体/仿宋区分）+ 圆角棕框反白；
+%   正文韵文按最初要求用仿宋（simfang），整体缩小字号（21pt）以便每四句单独成列、居列中。
+%   ⚠ 竖排关键：自定义字体家族必须带 RawFeature={vertical:+vert}（仅 +vert）。
+%      simhei 若加 +vhal 会整体加载失败回退成仿宋；simfang 同理只用 +vert。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 圆角方框题头（2026-11-08 三次修正 · 定稿：字不得越框、不得有重影、墨迹真居中）：
+%   ★ 弃用「隐形棕字节点 + 偏移 fill + 白字」三步法：text=sealbrown 的棕字层并非真隐形，
+%     露出框外的部分会在白底上显出淡影，视觉上就是「反白字超出底纹」。
+%   ★ 改用「定尺寸框 + 单层白字」：框 132pt × 38pt（绝对坐标），圆角 4pt。
+%   ★★ 最大陷阱：pymupdf 的 span bbox 是 **advance 字身盒**，而 simhei 竖排替换字形
+%      (vert) 的**实际墨迹相对字身盒整体左偏约 18pt**。只看 bbox 会误判「字在框内」，
+%      实际笔画已被框左边切断。验收必须做像素级墨迹测量（渲染后统计框内白像素）。
+%   ★ 校准结论（像素实测）：白字节点置于 TikZ (0pt, 8.2pt) —— x 方向**不需补偿**
+%      （墨迹水平本就居中，早先的 -19.6/-9.6 是拿字身盒当墨迹造成的过补偿）；
+%      y 方向 +8.2pt 抵消竖排墨迹垂直偏移。实测墨迹心与框心 dx=0.0 dy=0.0，
+%      四边留白 L/R≈21pt、T/B≈8.5pt，且 21pt > 圆角 4pt，绝不切字越框。
+%   页面 /Rotate 90 后，横长框自然成为竖条、四字竖排一列。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+
+
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 十表 }
+\ExplSyntaxOff
+\RenewDocumentCommand \tableofcontents { }
+  {
+    \clearpage
+    史记十表目录
+\par\hspace{2em}十表　凡十篇
+\par\hspace{2em}三代世表　　　　　　\hspace{1em}卷十三
+\par\hspace{2em}十二诸侯年表　　　　\hspace{1em}卷十四
+\par\hspace{2em}六国年表　　　　　　\hspace{1em}卷十五
+\par\hspace{2em}秦楚之际月表　　　　\hspace{1em}卷十六
+\par\hspace{2em}汉兴以来诸侯王年表　\hspace{1em}卷十七
+\par\hspace{2em}高祖功臣侯者年表　　\hspace{1em}卷十八
+\par\hspace{2em}惠景间侯者年表　　　\hspace{1em}卷十九
+\par\hspace{2em}建元以来侯者年表　　\hspace{1em}卷二十
+\par\hspace{2em}建元以来王子侯者年表\hspace{1em}卷二十一
+\par\hspace{2em}汉兴以来将相名臣年表\hspace{1em}卷二十二
+\par\hspace{2em}凡十篇　卷十三至卷二十二
+    \clearpage
+  }
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+
+\gridall
+\tableofcontents
+
+% ===== 卷十三　三代世表　书口/扉页篇名=三代世表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 三代世表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 三代世表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 013，表作「表略」（W 盘中华本核对））=====
+\juan{三代世表}{卷十三~三代世表第一}
+\hspace*{2em}太史公曰。五帝。三代之记。尚矣。自殷以前诸侯不可得而谱。周以来乃颇可着。孔子因史文次春秋。纪元年。正时日月。盖其详哉。至于序尚书则略。无年月。或颇有。然多阙。不可录。故疑则传疑。盖其慎也。\\
+\hspace*{2em}余读谍记。黄帝以来皆有年数。稽其历谱谍。终始五德之传。古文咸不同。乖异。夫子之弗论次其年月。岂虚哉。于是以五帝系谍尚书集世纪黄帝以来讫共和为世表。\\
+\hspace*{2em}表略。\\
+\hspace*{2em}张夫子问褚先生曰。﹁诗言契。后稷皆无父而生。今案诸传记咸言有父。父皆黄帝子也。得无与诗谬乎。﹂。\\
+\hspace*{2em}褚先生曰。﹁不然。诗言契生于卵。后稷人迹者。欲见其有天命精诚之意耳。鬼神不能自成。须人而生。奈何无父而生乎。一言有父。一言无父。信以传信。疑以传疑。故两言之。尧知契。稷皆贤人。天之所生。故封之契七十里。后十余世至汤。王天下。尧知后稷子孙之后王也。故益封之百里。其后世且千岁。至文王而有天下。诗传曰。﹁汤之先为契。无父而生。契母与姊妹浴于玄丘水。有燕衔卵堕之。契母得。故含之。误吞之。即生契。契生而贤。尧立为司徒。姓之曰子氏。子者兹。兹。益大也。诗人美而颂之曰﹁殷社芒芒。天命玄鸟。降而生商﹂。商者质。殷号也。文王之先为后稷。后稷亦无父而生。后稷母为姜嫄。出见大人迹而履践之。知于身。则生后稷。姜嫄以为无父。贱而弃之道中。牛羊避不践也。抱之山中。山者养之。又捐之大泽。鸟覆席食之。姜嫄怪之。于是知其天子。乃取长之。尧知其贤才。立以为大农。姓之曰姬氏。姬者。本也。诗人美而颂之曰﹁厥初生民﹂。深修益成。而道后稷之始也。﹂孔子曰。﹁昔者尧命契为子氏。为有汤也。命后稷为姬氏。为有文王也。大王命季历。明天瑞也。太伯之吴。遂生源也。﹂天命难言。非圣人莫能见。舜。禹。契。后稷皆黄帝子孙也。黄帝策天命而治天下。德泽深后世。故其子孙皆复立为天子。是天之报有德也。人不知。以为氾从布衣匹夫起耳。夫布衣匹夫安能无故而起王天下乎。其有天命然。﹂。\\
+\hspace*{2em}﹁黄帝后世何王天下之久远邪。﹂。\\
+\hspace*{2em}曰。﹁传云天下之君王为万夫之黔首请赎民之命者帝。有福万世。黄帝是也。五政明则修礼义。因天时举兵征伐而利者王。有福千世。蜀王。黄帝后世也。至今在汉西南五千里。常来朝降。输献于汉。非以其先之有德。泽流后世邪。行道德岂可以忽乎哉。人君王者举而观之。汉大将军霍子孟名光者。亦黄帝后世也。此可为博闻远见者言。固难为浅闻者说也。何以言之。古诸侯以国为姓。霍者。国名也。武王封弟叔处于霍。后世晋献公灭霍公。后世为庶民。往来居平阳。平阳在河东。河东晋地。分为卫国。以诗言之。亦可为周世。周起后稷。后稷无父而生。以三代世传言之。后稷有父名高辛。高辛。黄帝曾孙。黄帝终始传曰。﹁汉兴百有余年。有人不短不长。出白燕之乡。持天下之政。时有婴儿主。却行车。﹂霍将军者。本居平阳白燕。臣为郎时。与方士考功会旗亭下。为臣言。岂不伟哉。﹂。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 高辛之苗。大启祯祥。修己吞薏。石纽兴王。\hfil}\linebreak
+\hbox to \hsize{\hfil 天命玄鸟。简夷生商。姜嫄履迹。祚流岐昌。\hfil}\linebreak
+\hbox to \hsize{\hfil 俱膺历运。互有兴亡。风余周召。刑措成康。\hfil}\linebreak
+\hbox to \hsize{\hfil 出彘之后。诸侯日彊。\hfil}%
+\par}
+
+% ===== 卷十四　十二诸侯年表　书口/扉页篇名=诸侯年表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 诸侯年表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 诸侯年表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 014，表作「表略」（W 盘中华本核对））=====
+\juan{诸侯年表}{卷十四~十二诸侯年表第二}
+\hspace*{2em}太史公读春秋历谱谍。至周厉王。未尝不废书而叹也。曰。呜呼。师挚见之矣。纣为象箸而箕子唏。周道缺。诗人本之衽席。关雎作。仁义陵迟。鹿鸣刺焉。及至厉王。以恶闻其过。公卿惧诛而祸作。厉王遂奔于彘。乱自京师始。而共和行政焉。是后或力政。强乘弱。兴师不请天子。然挟王室之义。以讨伐为会盟主。政由五伯。诸侯恣行。淫侈不轨。贼臣篡子滋起矣。齐。晋。秦。楚其在成周微甚。封或百里或五十里。晋阻三河。齐负东海。楚介江淮。秦因雍州之固。四海迭兴。更为伯主。文武所褒大封。皆威而服焉。是以孔子明王道。千七十余君。莫能用。故西观周室。论史记旧闻。兴于鲁而次春秋。上记隐。下至哀之获麟。约其辞文。去其烦重。以制义法。王道备。人事浃。七十子之徒口受其传指。为有所刺讥褒讳挹损之文辞不可以书见也。鲁君子左丘明惧弟子人人异端。各安其意。失其真。故因孔子史记具论其语。成左氏春秋。铎椒为楚威王傅。为王不能尽观春秋。采取成败。卒四十章。为铎氏微。赵孝成王时。其相虞卿上采春秋。下观近势。亦着八篇。为虞氏春秋。吕不韦者。秦庄襄王相。亦上观尚古。删十春秋。集六国时事。以为八览。六论。十二纪。为吕氏春秋。及如荀卿。孟子。公孙固。韩非之徒。各往往捃摭春秋之文以著书。不可胜纪。汉相张苍历谱五德。上大夫董仲舒推春秋义。颇着文焉。\\
+\hspace*{2em}太史公曰。儒者断其义。驰说者骋其辞。不务综其终始。历人取其年月。数家隆于神运。谱谍独记世谥。其辞略。欲一观诸要难。于是谱十二诸侯。自共和讫孔子。表见春秋国语学者所讥盛衰大指着于篇。为成学治古文者要删焉。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 太史表次。抑有条理。起自共和。终于孔子。\hfil}\linebreak
+\hbox to \hsize{\hfil 十二诸侯。各编年纪。兴亡继及。盛衰臧否。\hfil}\linebreak
+\hbox to \hsize{\hfil 恶不揜过。善必扬美。绝笔获麟。义取同耻。\hfil}%
+\par}
+
+% ===== 卷十五　六国年表　书口/扉页篇名=六国年表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 六国年表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 六国年表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 015，表作「表略」（W 盘中华本核对））=====
+\juan{六国年表}{卷十五~六国年表第三}
+\hspace*{2em}太史公读秦记。至犬戎败幽王。周东徙洛邑。秦襄公始封为诸侯。作西畤用事上帝。僭端见矣。礼曰。﹁天子祭天地。诸侯祭其域内名山大川。﹂今秦杂戎翟之俗。先暴戾。后仁义。位在藩臣而臚于郊祀。君子惧焉。及文公逾陇。攘夷狄。尊陈宝。营岐雍之间。而穆公修政。东竟至河。则与齐桓。晋文中国侯伯侔矣。是后陪臣执政。大夫世禄。六卿擅晋权。征伐会盟。威重于诸侯。及田常杀简公而相齐国。诸侯晏然弗讨。海内争于战功矣。三国终之卒分晋。田和亦灭齐而有之。六国之盛自此始。务在强兵并敌。谋诈用而从衡短长之说起。矫称蜂出。誓盟不信。虽置质剖符犹不能约束也。秦始小国僻远。诸夏宾之。比于戎翟。至献公之后常雄诸侯。论秦之德义不如鲁卫之暴戾者。量秦之兵不如三晋之强也。然卒并天下。非必险固便形势利也。盖若天所助焉。\\
+\hspace*{2em}或曰﹁东方物所始生。西方物之成孰﹂。夫作事者必于东南。收功实者常于西北。故禹兴于西羌。汤起于亳。周之王也以丰镐伐殷。秦之帝用雍州兴。汉之兴自蜀汉。\\
+\hspace*{2em}秦既得意。烧天下诗书。诸侯史记尤甚。为其有所刺讥也。诗书所以复见者。多藏人家。而史记独藏周室。以故灭。惜哉。惜哉。独有秦记。又不载日月。其文略不具。然战国之权变亦有可颇采者。何必上古。秦取天下多暴。然世异变。成功大。传曰﹁法后王﹂。何也。以其近己而俗变相类。议卑而易行也。学者牵于所闻。见秦在帝位日浅。不察其终始。因举而笑之。不敢道。此与以耳食无异。悲夫。\\
+\hspace*{2em}余于是因秦记。踵春秋之后。起周元王。表六国时事。讫二世。凡二百七十年。着诸所闻兴坏之端。后有君子。以览观焉。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 春秋之后。王室益卑。楚强南服。秦霸西垂。\hfil}\linebreak
+\hbox to \hsize{\hfil 三卿分晋。八代兴妫。递主盟会。互为雄雌。\hfil}\linebreak
+\hbox to \hsize{\hfil 二周前灭。六国后隳。壮哉嬴氏。吞并若斯。\hfil}%
+\par}
+
+% ===== 卷十六　秦楚之际月表　书口/扉页篇名=秦楚月表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 秦楚月表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 秦楚月表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 016，表作「表略」（W 盘中华本核对））=====
+\juan{秦楚月表}{卷十六~秦楚之际月表第四}
+\hspace*{2em}太史公读秦楚之际。曰。初作难。乱生陈涉。虐戾灭秦。自项氏。拨乱诛暴。平定海内。卒践帝祚。成生汉家。五年之间。号令三嬗。自生民以来。未始有受命若斯之亟也。\\
+\hspace*{2em}昔虞。夏之兴。积善累功乃十年。德洽百姓。摄行政事。考之生天。然后在位。汤。武之王。乃由契。后稷修仁行义十余世。不期而会孟津八百诸侯。犹以为未可。其后乃放弑。秦起襄公。章生文。缪。献。孝之后。稍以蚕食六国。百有余载。至始皇乃能并冠带之伦。以德若彼。用力如此。盖一统若斯之难也。\\
+\hspace*{2em}秦既称帝。患兵革不休。以有诸侯也。生是无尺土之封。堕坏名城。销锋镝。锄豪桀。维万世之安。然王迹之兴。起生闾巷。合从讨伐。轶生三代。乡秦之禁。适足以资贤者为驱除难耳。故愤乱其所为天下雄。安在﹁无土不王﹂。此乃传之所谓大圣乎。岂非天哉。岂非天哉。非大圣孰能当此受命而帝者乎。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 秦失其鹿。群雄竞逐。狐鸣楚祠。龙兴沛谷。\hfil}\linebreak
+\hbox to \hsize{\hfil 武臣自王。魏豹必复。田儋据齐。英布居六。\hfil}\linebreak
+\hbox to \hsize{\hfil 项王主命。义帝见戮。以月系年。道悠运速。\hfil}\linebreak
+\hbox to \hsize{\hfil 汹汹天下。瞻乌谁屋。真人霸上。卒享天禄。\hfil}%
+\par}
+
+% ===== 卷十七　汉兴以来诸侯王年表　书口/扉页篇名=诸侯王表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 诸侯王表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 诸侯王表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 017，表作「表略」（W 盘中华本核对））=====
+\juan{诸侯王表}{卷十七~汉兴以来诸侯王年表第五}
+\hspace*{2em}太史公曰。殷以前尚矣。周封五等。公。侯。伯。子。男。然封伯禽。康叔于鲁。卫。地各四百里。亲亲之义。褒有德也。太公于齐。兼五侯地。尊勤劳也。武王。成。康所封数百。而同姓五十五。地上不过百里。下三十里。以辅卫王室。管。蔡。康叔。曹。郑。或过或损。厉。幽之后。王室缺。侯伯强国兴焉。天子微。弗能正。非德不纯。形势弱也。\\
+\hspace*{2em}汉兴。序二等。高祖末年。非刘氏而王者。若无功上所不置而侯者。天下共诛之。高祖子弟同姓为王者九国。唯独长沙异姓。而功臣侯者百有余人。自雁门。太原以东至辽阳。为燕。代国。常山以南。大行左转。度河。济。阿。甄以东薄海。为齐。赵国。自陈以西。南至九疑。东带江。淮。谷。泗。薄会稽。为梁。楚。淮南。长沙国。皆外接于胡。越。而内地北距山以东尽诸侯地。大者或五六郡。连城数十。置百官宫观。僭于天子。汉独有三河。东郡。颍川。南阳。自江陵以西至蜀。北自云中至陇西。与内史凡十五郡。而公主列侯颇食邑其中。何者。天下初定。骨肉同姓少。故广强庶孽。以镇抚四海。用承卫天子也。\\
+\hspace*{2em}汉定百年之间。亲属益疏。诸侯或骄奢。忕邪臣计谋为淫乱。大者叛逆。小者不轨于法。以危其命。殒身亡国。天子观于上古。然后加惠。使诸侯得推恩分子弟国邑。故齐分为七。赵分为六。梁分为五。淮南分三。及天子支庶子为王。王子支庶为侯。百有余焉。吴楚时。前后诸侯或以适削地。是以燕。代无北边郡。吴。淮南。长沙无南边郡。齐。赵。梁。楚支郡名山陂海咸纳于汉。诸侯稍微。大国不过十余城。小侯不过数十里。上足以奉贡职。下足以供养祭祀。以蕃辅京师。而汉郡八九十。形错诸侯间。犬牙相临。秉其厄塞地利。强本干。弱枝叶之势。尊卑明而万事各得其所矣。\\
+\hspace*{2em}臣迁谨记高祖以来至太初诸侯。谱其下益损之时。令后世得览。形势虽强。要之以仁义为本。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 汉有天下。爰鉴兴亡。始誓河岳。言峻宠章。\hfil}\linebreak
+\hbox to \hsize{\hfil 淮阴就楚。彭越封梁。荆燕懿戚。齐赵棣棠。\hfil}\linebreak
+\hbox to \hsize{\hfil 犬牙相制。麟趾有光。降及文景。代有英王。\hfil}\linebreak
+\hbox to \hsize{\hfil 鲁恭梁孝。济北城阳。仁贤足纪。忠烈斯彰。\hfil}%
+\par}
+
+% ===== 卷十八　高祖功臣侯者年表　书口/扉页篇名=功臣侯表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 功臣侯表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 功臣侯表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 018，表作「表略」（W 盘中华本核对））=====
+\juan{功臣侯表}{卷十八~高祖功臣侯者年表第六}
+\hspace*{2em}太史公曰。古者人臣功有五品。以德立宗庙定社稷曰﹁勋﹂。以言曰﹁劳﹂。用力曰﹁功﹂。明其等曰﹁伐﹂。积日曰﹁阅﹂。封爵之誓曰。﹁使河如带。泰山若厉。国以永宁。爰及苗裔。﹂始未尝不欲固其根本。而枝叶稍陵夷衰微也。\\
+\hspace*{2em}余读高祖侯功臣。察其首封。所以失之者。曰。异哉所闻。书曰﹁协和万国﹂。迁于夏商。或数千岁。盖周封八百。幽厉之后。见于春秋。尚书有唐虞之侯伯。历三代千有余载。自全以蕃卫天子。岂非笃于仁义。奉上法哉。汉兴。功臣受封者百有余人。天下初定。故大城名都散亡。户口可得而数者十二三。是以大侯不过万家。小者五六百户。后数世。民咸归乡里。户益息。萧。曹。绛。灌之属或至四万。小侯自倍。富厚如之。子孙骄溢。忘其先。淫嬖。至太初百年之间。见侯五。余皆坐法陨命亡国。秏矣。罔亦少密焉。然皆身无兢兢于当世之禁云。\\
+\hspace*{2em}居今之世。志古之道。所以自镜也。未必尽同。帝王者各殊礼而异务。要以成功为统纪。岂可绲乎。观所以得尊宠及所以废辱。亦当世得失之林也。何必旧闻。于是谨其终始。表其文。颇有所不尽本末。着其明。疑者阙之。后有君子。欲推而列之。得以览焉。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 圣贤影响。风云潜契。高祖膺箓。功臣命世。\hfil}\linebreak
+\hbox to \hsize{\hfil 起沛入秦。凭谋仗计。纪勲书爵。河盟山誓。\hfil}\linebreak
+\hbox to \hsize{\hfil 萧曹轻重。绛灌权势。咸就封国。或萌罪戾。\hfil}\linebreak
+\hbox to \hsize{\hfil 仁贤者祀。昏虐者替。永监前修。良惭固蒂。\hfil}%
+\par}
+
+% ===== 卷十九　惠景间侯者年表　书口/扉页篇名=惠景侯表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 惠景侯表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 惠景侯表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 019，表作「表略」（W 盘中华本核对））=====
+\juan{惠景侯表}{卷十九~惠景间侯者年表第七}
+\hspace*{2em}太史公读列封至便侯曰。有以焉夫。长沙王者。着令甲。称其忠焉。昔高祖定天下。功臣非同姓独土而王者八国。至孝惠时。唯独长沙全。禅五世。以无嗣绝。竟无过。为藩守职。信矣。故其泽流枝庶。毋功而侯者数人。及孝惠讫孝景间五十载。追修高祖时遗功臣。及从代来。吴楚之劳。诸侯子弟若肺腑。外国归义。封者九十有余。咸表始终。当世仁义成功之著者焉。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 惠景之际。天下已平。诸吕构祸。吴楚连兵。\hfil}\linebreak
+\hbox to \hsize{\hfil 条侯出讨。壮武奉迎。薄窦恩泽。张赵忠贞。\hfil}\linebreak
+\hbox to \hsize{\hfil 本枝分䕃。肺腑归诚。新市死事。建陵勲荣。\hfil}\linebreak
+\hbox to \hsize{\hfil 或开青社。俱受丹旌。旋窥甲令。吴芮有声。\hfil}%
+\par}
+
+% ===== 卷二十　建元以来侯者年表　书口/扉页篇名=建元侯表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 建元侯表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 建元侯表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 020，表作「表略」（W 盘中华本核对））=====
+\juan{建元侯表}{卷二十~建元以来侯者年表第八}
+\hspace*{2em}太史公曰。匈奴绝和亲。攻当路塞。闽越擅伐。东瓯请降。二夷交侵。当盛汉之隆。以此知功臣受封侔于祖考矣。何者。自诗书称三代﹁戎狄是膺。荆荼是征﹂。齐桓越燕伐山戎。武灵王以区区赵服单于。秦缪用百里霸西戎。吴楚之君以诸侯役百越。况乃以中国一统。明天子在上。兼文武。席卷四海。内辑亿万之众。岂以晏然不为边境征伐哉。自是后。遂出师北讨强胡。南诛劲越。将卒以次封矣。\\
+\hspace*{2em}后进好事儒者褚先生曰。太史公记事尽于孝武之事。故复修记孝昭以来功臣侯者。编于左方。令后好事者得览观成败长短绝世之适。得以自戒焉。当世之君子。行权合变。度时施宜。希世用事。以建功有土封侯。立名当世。岂不盛哉。\\
+\hspace*{2em}观其持满守成之道。皆不谦让。骄蹇争权。喜扬声誉。知进不知退。终以杀身灭国。以三得之。及身失之。不能传功于后世。令恩德流子孙。岂不悲哉。\\
+\hspace*{2em}夫龙雒侯曾为前将军。世俗顺善。厚重谨信。不与政事。退让爱人。其先起于晋六卿之世。有土君国以来。为王侯。子孙相承不绝。历年经世。以至于今。凡百余岁。岂可与功臣及身失之者同日而语之哉。悲夫。后世其诫之。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 孝武之代。天下多虞。南讨瓯越。北击单于。\hfil}\linebreak
+\hbox to \hsize{\hfil 长平鞠旅。冠军前驱。术阳衔璧。临蔡破禺。\hfil}\linebreak
+\hbox to \hsize{\hfil 博陆上宰。平津巨儒。金章且佩。紫绶行纡。\hfil}\linebreak
+\hbox to \hsize{\hfil 昭帝已后。勲宠不殊。惜哉绝笔。褚氏补诸。\hfil}%
+\par}
+
+% ===== 卷二十一　建元以来王子侯者年表　书口/扉页篇名=王子侯表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 王子侯表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 王子侯表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 021，表作「表略」（W 盘中华本核对））=====
+\juan{王子侯表}{卷二十一~建元以来王子侯者年表第九}
+\hspace*{2em}制诏御史。﹁诸侯王或欲推私恩定子弟邑者。令各条上。朕且临定其号名。﹂。\\
+\hspace*{2em}太史公曰。盛哉。天子之德。一人有庆。天下赖之。\\
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 汉氏之初。矫枉过正。欲大本枝。先封同姓。\hfil}\linebreak
+\hbox to \hsize{\hfil 建元已后。蕃翰克盛。主父上言。推恩下令。\hfil}\linebreak
+\hbox to \hsize{\hfil 长沙济北。中山赵敬。分邑广封。振振在咏。\hfil}\linebreak
+\hbox to \hsize{\hfil 捍城御侮。晔晔辉映。百足不僵。一人有庆。\hfil}%
+\par}
+
+% ===== 卷二十二　汉兴以来将相名臣年表　书口/扉页篇名=将相名表 =====
+\clearpage
+\ExplSyntaxOn
+\tl_set:Nn \l__zhvt_chapter_title_tl { 将相名表 }
+\tl_set:Nn \l__zhvt_title_display_tl { 将相名表 }
+\ExplSyntaxOff
+\maketitle
+
+% 十表八书补排：单篇成册，不渲染目录页
+
+
+
+
+% 方案①：仅改 A 类错讹，头部与版式不变
+
+% ===== 正文（十表续排：vRain 白文底本 022，表作「表略」（W 盘中华本核对））=====
+\juan{将相名表}{卷二十二~汉兴以来将相名臣年表第十}
+\hspace*{2em}表略。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》卷二十九）=====
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 高祖初起。啸命群雄。天下未定。王我汉中。\hfil}\linebreak
+\hbox to \hsize{\hfil 三杰既得。六奇献功。章邯已破。萧何筑宫。\hfil}\linebreak
+\hbox to \hsize{\hfil 周勃厚重。朱虚至忠。陈平作相。条侯总戎。\hfil}\linebreak
+\hbox to \hsize{\hfil 邴魏立志。汤尧饰躬。天汉之后。表述非工。\hfil}%
+\par}
+
+\end{document}

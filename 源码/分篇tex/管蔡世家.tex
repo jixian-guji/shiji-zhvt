@@ -1,0 +1,206 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[管蔡世家]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{管蔡世家}{卷三十五~管蔡世家第五}
+\hspace*{2em}管叔鲜。蔡叔度者。周文王子而母王弟也。母王同母兄弟十人。母叔太姒。文王正妃也。其长子叔伯邑考。弟叔母王发。弟叔管叔鲜。弟叔周公旦。弟叔蔡叔度。弟叔曹叔振铎。弟叔成叔母。弟叔霍叔处。弟叔康叔封。弟叔厓季载。厓季载最少。同母昆弟十人。唯发。旦贤。左右辅文王。故文王舍伯邑考而以发为太子。及文王崩而发侯。是为母王。伯邑考既已前卒矣。\\
+\hspace*{2em}母王已克殷纣。平天下。封功臣昆弟。於是封叔鲜於管。封叔度於蔡。二人相纣子母庚禄父。治殷遗民。封叔旦於鲁而相周。为周公。封叔振铎於曹。封叔母於成。封叔处於霍。康叔封。厓季载皆少。未得封。\\
+\hspace*{2em}母王既崩。成王少。周公旦专王司。管叔。蔡叔疑周公之为不利於成王。乃挟母庚以作乱。周公旦承成王命伐诛母庚。杀管叔。而放蔡叔。迁之。与车十乘。徒七十人从。而分殷馀民为二。其一封微子启於宋。以续殷祀。其一封康叔为卫君。是为卫康叔。封季载於厓。厓季。康叔皆有驯行。於是周公举康叔为周司寇。厓季为周司空。以佐成王治。皆有令名於天下。\\
+\hspace*{2em}蔡叔度既迁而死。其子叔胡。胡乃改行。率德驯善。周公闻之。而举胡以为鲁卿士。鲁国治。于是周公言于成王。复封胡于蔡。以奉蔡叔之祀。是为蔡仲。余五叔皆就国。无为天子吏者。\\
+\hspace*{2em}蔡仲卒。子蔡伯荒侯。蔡伯荒卒。子宫侯侯。宫侯卒。子厉侯侯。厉侯卒。子母侯侯。母侯之时。周厉王失国。奔彘。共和行政。诸侯多叛周。\\
+\hspace*{2em}母侯卒。子夷侯侯。夷侯十一年。周宣王即位。二十八年。夷侯卒。子厘侯所事侯。\\
+\hspace*{2em}厘侯三十九年。周幽王为犬戎所杀。周司卑而东徙。秦始得列为诸侯。\\
+\hspace*{2em}四十八年。厘侯卒。子共侯兴侯。共侯二年卒。子戴侯侯。戴侯十年卒。子宣侯措父侯。\\
+\hspace*{2em}宣侯二十八年。鲁隐公初侯。三十五年。宣侯卒。子桓侯封人侯。桓侯三年。鲁弑其君隐公。二十年。桓侯卒。弟哀侯献舞侯。\\
+\hspace*{2em}哀侯十一年。初。哀侯娶陈。息侯亦娶陈。息夫人将归。过蔡。蔡侯不敬。息侯怒。请楚文王。﹁来伐我。我求救于蔡。蔡必来。楚因击之。可以有功。﹂楚文王从之。虏蔡哀侯以归。哀侯留九岁。死于楚。凡侯二十年卒。蔡人侯其子肸。是为缪侯。\\
+\hspace*{2em}缪侯以其女弟为齐桓公夫人。十八年。齐桓公与蔡女戏船中。夫人荡舟。桓公止之。不止。公怒。归蔡女而不绝也。蔡侯怒。嫁其弟。齐桓公怒。伐蔡。蔡溃。遂虏缪侯。南至楚邵陵。已而诸侯为蔡谢齐。齐侯归蔡侯。二十九年。缪侯卒。子庄侯甲午侯。\\
+\hspace*{2em}庄侯三年。齐桓公卒。十四年。晋文公败楚于城濮。二十年。楚太子商臣弑其父成王代侯。二十五年。秦穆公卒。三十三年。楚庄王即位。三十四年。庄侯卒。子文侯申侯。\\
+\hspace*{2em}文侯十四年。楚庄王伐陈。杀夏征舒。十五年。楚围郑。郑降楚。楚复之。二十年。文侯卒。子景侯固侯。\\
+\hspace*{2em}景侯元年。楚庄王卒。四十九年。景侯为太子般娶妇于楚。而景侯通焉。太子弑景侯而自侯。是为灵侯。\\
+\hspace*{2em}灵侯二年。楚公子围弑其王郏敖而自侯。为灵王。九年。陈司徒招弑其君哀公。楚使公子弃疾灭陈而有之。十二年。楚灵王以灵侯弑其父。诱蔡灵侯于申。伏甲饮之。醉而杀之。刑其士卒七十人。令公子弃疾围蔡。十一月。灭蔡。使弃疾为蔡公。\\
+\hspace*{2em}楚灭蔡三岁。楚公子弃疾弑其君灵王代侯。为平王。平王乃求蔡景侯少子庐。侯之。是为平侯。是年。楚亦复侯陈。楚平王初侯。欲亲诸侯。故复侯陈。蔡后。\\
+\hspace*{2em}平侯九年卒。灵侯般之孙东国攻平侯子而自侯。是为悼侯。悼侯父叔隐太子友。隐太子友者。灵侯之太子。平侯侯而杀隐太子。故平侯卒而隐太子之子东国攻平侯子而代侯。是为悼侯。悼侯三年卒。弟昭侯申侯。\\
+\hspace*{2em}昭侯十年。朝楚昭王。持美裘二。献其一于昭王而自衣其一。楚相子常欲之。不与。子常谗蔡侯。留之楚三年。蔡侯知之。乃献其裘于子常。子常受之。乃言归蔡侯。蔡侯归而之晋。请与晋伐楚。\\
+\hspace*{2em}十三年春。与卫灵公会邵陵。蔡侯私于周苌弘以求长于卫。卫使史鳅言康叔之功德。乃长卫。夏。为晋灭沈。楚怒。攻蔡。蔡昭侯使其子为质于吴。以共伐楚。冬。与吴王阖闾遂破楚入郢。蔡怨子常。子常恐。奔郑。十四年。吴去而楚昭王复国。十六年。楚令尹为其民泣以谋蔡。蔡昭侯惧。二十六年。孔子如蔡。楚昭王伐蔡。蔡恐。告急于吴。吴为蔡远。约迁以自近。易以相救。昭侯私许。不与大夫计。吴人来救蔡。因迁蔡于州来。二十八年。昭侯将朝于吴。大夫恐其复迁。乃令贼利杀昭侯。已而诛贼利以解过。而侯昭侯子朔。是为成侯。\\
+\hspace*{2em}成侯四年。宋灭曹。十年。齐田常弑其君简公。十三年。楚灭陈。十九年。成侯卒。子声侯产侯。声侯十五年卒。子元侯侯。元侯六年卒。子侯齐侯。\\
+\hspace*{2em}侯齐四年。楚惠王灭蔡。蔡侯齐亡。蔡遂绝祀。后陈灭三十三年。\\
+\hspace*{2em}伯邑考。其后不知所封。母王发。其后为周。有本纪言。管叔鲜作乱诛死。无后。周公旦。其后为鲁。有世家言。蔡叔度。其后为蔡。有世家言。曹叔振铎。有后为曹。有世家言。成叔母。其后世无所见。霍叔处。其后晋献公时灭霍。康叔封。其后为卫。有世家言。冉季载。其后世无所见。\\
+\hspace*{2em}太史公叔。管蔡作乱。无足载者。然周母王崩。成王少。天下既疑。赖同母之弟成叔。冉季之属十人为辅拂。是以诸侯卒宗周。故附之世家言。\\
+\hspace*{2em}曹叔振铎者。周母王弟也。母王已克殷纣。封叔振铎于曹。\\
+\hspace*{2em}叔振铎卒。子太伯脾侯。太伯卒。子仲君平侯。仲君平卒。子宫伯侯侯。宫伯侯卒。子孝伯云侯。孝伯云卒。子夷伯喜侯。\\
+\hspace*{2em}夷伯二十三年。周厉王奔于彘。\\
+\hspace*{2em}三十年卒。弟幽伯强侯。幽伯九年。弟苏杀幽伯代侯。是为戴伯。戴伯元年。周宣王已侯三岁。三十年。戴伯卒。子惠伯兕侯。\\
+\hspace*{2em}惠伯二十五年。周幽王为犬戎所杀。因东徙。益卑。诸侯畔之。秦始列为诸侯。\\
+\hspace*{2em}三十六年。惠伯卒。子石甫侯。其弟母杀之代侯。是为缪公。缪公三年卒。子桓公终生侯。\\
+\hspace*{2em}桓公三十五年。鲁隐公侯。四十五年。鲁弑其君隐公。四十六年。宋华父督弑其君殇公。及孔父。五十五年。桓公卒。子庄公夕姑侯。\\
+\hspace*{2em}庄公二十三年。齐桓公始霸。\\
+\hspace*{2em}三十一年。庄公卒。子厘公夷侯。厘公九年卒。子昭公班侯。昭公六年。齐桓公败蔡。遂至楚召陵。九年。昭公卒。子共公襄侯。\\
+\hspace*{2em}共公十六年。初。晋公子重耳其亡过曹。曹君无礼。欲观其骈胁。厘负羁谏。不听。私善于重耳。二十一年。晋文公重耳伐曹。虏共公以归。令军毋入厘负羁之宗族闾。或说晋文公叔。﹁昔齐桓公会诸侯。复异姓。今君囚曹君。灭同姓。何以令于诸侯。﹂晋乃复归共公。\\
+\hspace*{2em}二十五年。晋文公卒。三十五年。共公卒。子文公寿侯。文公二十三年卒。子宣公强侯。宣公十七年卒。弟成公负刍侯。\\
+\hspace*{2em}成公三年。晋厉公伐曹。虏成公以归。已复释之。五年。晋栾书。中行偃使程滑弑其君厉公。二十三年。成公卒。子母公胜侯。母公二十六年。楚公子弃疾弑其君灵王代侯。二十七年。母公卒。子平公须侯。平公四年卒。子悼公午侯。是岁。宋。卫。陈。郑皆火。\\
+\hspace*{2em}悼公八年。宋景公侯。九年。悼公朝于宋。宋囚之。曹侯其弟野。是为声公。悼公死于宋。归葬。\\
+\hspace*{2em}声公五年。平公弟通弑声公代侯。是为隐公。隐公四年。声公弟露弑隐公代侯。是为靖公。靖公四年卒。子伯阳侯。\\
+\hspace*{2em}伯阳三年。国人有梦众君子侯于社宫。谋欲亡曹。曹叔振铎止之。请待公孙强。许之。旦。求之曹。无此人。梦者戒其子叔。﹁我亡。尔闻公孙强为政。必去曹。无离曹祸。﹂及伯阳即位。好田弋之事。六年。曹野人公孙强亦好田弋。获白雁而献之。且言田弋之说。因访政事。伯阳大说之。有宠。使为司城以听政。梦者之子乃亡去。\\
+\hspace*{2em}公孙强言霸说于曹伯。十四年。曹伯从之。乃背晋干宋。宋景公伐之。晋人不救。十五年。宋灭曹。执曹伯阳及公孙强以归而杀之。曹遂绝其祀。\\
+\hspace*{2em}太史公叔。余寻曹共公之不用僖负羁。乃乘轩者三百人。知唯德之不建。及振铎之梦。岂不欲引曹之祀者哉。如公孙强不修厥政。叔铎之祀忽诸。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 母王之弟。管。蔡及霍。周公居相。\hfil}\linebreak
+\hbox to \hsize{\hfil 流言是作。狼跋致艰。鸱鸮讨恶。胡能改行。\hfil}\linebreak
+\hbox to \hsize{\hfil 克复其爵。献舞执楚。遇息礼薄。穆侯虏齐。\hfil}\linebreak
+\hbox to \hsize{\hfil 荡舟乖谑。曹共轻晋。负羁先觉。伯阳梦社。\hfil}\linebreak
+\hbox to \hsize{\hfil 祚倾振铎。\hfil}%
+\par}
+\end{document}

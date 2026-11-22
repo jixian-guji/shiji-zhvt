@@ -1,0 +1,175 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[东越列传]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{东越列传}{卷一百十四~东越列传第五十四}
+\hspace*{2em}闽越王无诸及越东海王摇者。其先皆越王句践之后也。姓驺氏。秦已并天下。皆废为君长。以其地为闽中郡。及诸侯畔秦。无诸。摇率越归鄱阳令吴芮。所谓鄱君者也。从诸侯灭秦。当是之时。项籍主命。弗王。以故不附楚。汉击项籍。无诸。摇率越人佐汉。汉五年。复立无诸为闽越王。王闽中故地。都东冶。孝惠三年。举高帝时越功。曰闽君摇功多。其民便附。乃立摇为东海王。都东瓯。世俗号为东瓯王。\\
+\hspace*{2em}后数世。至孝景三年。吴王濞反。欲从闽越。闽越未肯行。独东瓯从吴。及吴破。东瓯受汉购。杀吴王丹徒。以故皆得不诛。归国。\\
+\hspace*{2em}吴王子子驹亡走闽越。怨东瓯杀其父。常劝闽越击东瓯。至建元三年。闽越发兵围东瓯。东瓯食尽。困。且降。乃使人告急天子。天子问太尉田蚡。蚡对曰。﹁越人相攻击。固其常。又数反覆。不足以烦中国往救也。自秦时弃弗属。﹂於是中大夫庄助诘蚡曰。﹁特患力弗能救。德弗能覆。诚能。何故弃之。且秦举咸阳而弃之。何乃越也。今小国以穷困来告急天子。天子弗振。彼当安所告愬。又何以子万国乎。﹂上曰。﹁太尉未足与计。吾初即位。不欲出虎符发兵郡国。﹂乃遣庄助以节发兵会稽。会稽太守欲距不为发兵。助乃斩一司马。谕意指。遂发兵浮海救东瓯。未至。闽越引兵而去。东瓯请举国徙中国。乃悉举众来。处江淮之间。\\
+\hspace*{2em}至建元六年。闽越击南越。南越守天子约。不敢擅发兵击而以闻。上遣大行王恢出豫章。大农韩安国出会稽。皆为将军。兵未逾岭。闽越王郢发兵距险。其弟馀善乃与相。宗族谋曰。﹁王以擅发兵击南越。不请。故天子兵来诛。今汉兵众彊。今即幸胜之。后来益多。终灭国而止。今杀王以谢天子。天子听。罢兵。固一国完。不听。乃力战。不胜。即亡入海。﹂皆曰﹁善﹂。即鏦杀王。使使奉其头致大行。大行曰。﹁所为来者诛王。今王头至。谢罪。不战而耘。利莫大焉。﹂乃以便宜案兵告大农军。而使使奉王头驰报天子。诏罢两将兵。曰。﹁郢等首恶。独无诸孙繇君丑不与谋焉。﹂乃使郎中将立丑为越繇王。奉闽越先祭祀。\\
+\hspace*{2em}馀善已杀郢。威行於国。国民多属。窃自立为王。繇王不能矫其众持正。天子闻之。为馀善不足复兴师。曰。﹁馀善数与郢谋乱。而后首诛郢。师得不劳。﹂因立馀善为东越王。与繇王并处。\\
+\hspace*{2em}至元鼎五年。南越反。东越王馀善上书。请以卒八千人从楼船将军击吕嘉等。兵至揭扬。以海风波为解。不行。持两端。阴使南越。及汉破番禺。不至。是时楼船将军杨仆使使上书。原便引兵击东越。上曰士卒劳倦。不许。罢兵。令诸校屯豫章梅领待命。\\
+\hspace*{2em}元鼎六年秋。馀善闻楼船请诛之。汉兵临境。且往。乃遂反。发兵距汉道。号将军驺力等为﹁吞汉将军﹂。入白沙。武林。梅岭。杀汉三校尉。是时汉使大农张成。故山州侯齿将屯。弗敢击。卻就便处。皆坐畏懦诛。\\
+\hspace*{2em}馀善刻﹁武帝﹂玺自立。诈其民。为妄言。天子遣横海将军韩说出句章。浮海从东方往。楼船将军杨仆出武林。中尉王温舒出梅岭。越侯为戈船。下濑将军。出若邪。白沙。元封元年冬。咸入东越。东越素发兵距险。使徇北将军守武林。败楼船军数校尉。杀长吏。楼船将军率钱唐辕终古斩徇北将军。为御兒侯。自兵未往。\\
+\hspace*{2em}故越衍侯吴阳前在汉。汉使归谕馀善。馀善弗听。及横海将军先至。越衍侯吴阳以其邑七百人反。攻越军於汉阳。从建成侯敖。与其率。从繇王居股谋曰。﹁馀善首恶。劫守吾属。今汉兵至。众彊。计杀馀善。自归诸将。傥幸得脱。﹂乃遂俱杀馀善。以其众降横海将军。故封繇王居股为东成侯。万户。封建成侯敖为开陵侯。封越衍侯吴阳为北石侯。封横海将军说为案道侯。封横海校尉福为缭嫈侯。福者。成阳共王子。故为海常侯。坐法失侯。旧从军无功。以宗室故侯。诸将皆无成功。莫封。东越将多军。汉兵至。弃其军降。封为无锡侯。\\
+\hspace*{2em}於是天子曰东越狭多阻。闽越悍。数反覆。诏军吏皆将其民徙处江淮间。东越地遂虚。\\
+\hspace*{2em}太史公曰。越虽蛮夷。其先岂尝有大功德於民哉。何其久也。历数代常为君王。句践一称伯。然馀善至大逆。灭国迁众。其先苗裔繇王居股等犹尚封为万户侯。由此知越世世为公侯矣。盖禹之馀烈也。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 句践之裔。是曰无诸。既席汉宠。实因秦馀。\hfil}\linebreak
+\hbox to \hsize{\hfil 驺。骆为姓。闽中是居。王摇之立。\hfil}\linebreak
+\hbox to \hsize{\hfil 爰处东隅。后嗣不道。自相诛锄。\hfil}%
+\par}
+\end{document}

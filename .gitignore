@@ -1,0 +1,34 @@
+# LaTeX 编译中间产物
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 备份与临时文件
+*_备份*/
+*_build/
+_预览*/
+预览/
+预览_*/
+*临时*/
+*.bak
+*.tmp
+full*.log
+pass*.log
+
+# 底本（现代整理本，有版权，不随仓库分发）
+*.txt
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.vscode/

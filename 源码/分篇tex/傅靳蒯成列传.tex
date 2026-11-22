@@ -1,0 +1,177 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[傅靳蒯成列传]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{傅靳蒯成列传}{卷九十八~傅靳蒯成列传第三十八}
+\hspace*{2em}阳陵侯傅宽。以魏五大夫骑将从。为舍人。起横阳。从攻安阳。杠里。击赵贲军於开封。及击杨熊曲遇。阳武。斩首十二级。赐爵卿。从至霸上。沛公立为汉王。汉王赐宽封号共德君。从入汉中。迁为右骑将。从定三秦。赐食邑雕阴。从击项籍。待怀。赐爵通德侯。从击项冠。周兰。龙且。所将卒斩骑将一人敖下。益食邑。\\
+\hspace*{2em}属淮阴。击破齐历下军。击田解。属相国参。残博。益食邑。因定齐地。剖符世世勿绝。封为阳陵侯。二千六百户。除前所食。为齐右丞相。备齐。五岁为齐相国。\\
+\hspace*{2em}四月。击陈豨。属太尉勃。以相国代丞相哙击豨。一月。徙为代相国。将屯。二岁。为代丞相。将屯。\\
+\hspace*{2em}孝惠五年卒。谥为景侯。子顷侯精立。二十四年卒。子共侯则立。十二年卒。子侯偃立。三十一年。坐与淮南王谋反。死。国除。\\
+\hspace*{2em}信武侯靳歙。以中涓从。起宛朐。攻济阳。破李由军。击秦军亳南。开封东北。斩骑千人将一人。首五十七级。捕虏七十三人。赐爵封号临平君。又战蓝田北。斩车司马二人。骑长一人。首二十八级。捕虏五十七人。至霸上。沛公立为汉王。赐歙爵建武侯。迁为骑都尉。\\
+\hspace*{2em}从定三秦。别西击章平军於陇西。破之。定陇西六县。所将卒斩车司马。候各四人。骑长十二人。从东击楚。至彭城。汉军败还。保雍丘。去击反者王武等。略梁地。别将击邢说军菑南。破之。身得说都尉二人。司马。候十二人。降吏卒四千一百八十人。破楚军荥阳东。三年。赐食邑四千二百户。\\
+\hspace*{2em}别之河内。击赵将贲郝军朝歌。破之。所将卒得骑将二人。车马二百五十匹。从攻安阳以东。至棘蒲。下七县。别攻破赵军。得其将司马二人。候四人。降吏卒二千四百人。从攻下邯郸。别下平阳。身斩守相。所将卒斩兵守。郡守各一人。降鄴。从攻朝歌。邯郸。及别击破赵军。降邯郸郡六县。还军敖仓。破项籍军成皋南。击绝楚饟道。起荥阳至襄邑。破项冠军鲁下。略地东至缯。郯。下邳。南至蕲。竹邑。击项悍济阳下。还击项籍陈下。破之。别定江陵。降江陵柱国。大司马以下八人。身得江陵王。生致之雒阳。因定南郡。从至陈。取楚王信。剖符世世勿绝。定食四千六百户。号信武侯。\\
+\hspace*{2em}以骑都尉从击代。攻韩信平城下。还军东垣。有功。迁为车骑将军。并将梁。赵。齐。燕。楚车骑。别击陈豨丞相敞。破之。因降曲逆。从击黥布有功。益封定食五千三百户。凡斩首九十级。虏百三十二人。别破军十四。降城五十九。定郡。国各一。县二十三。得王。柱国各一人。二千石以下至五百石三十九人。\\
+\hspace*{2em}高后五年。歙卒。谥为肃侯。子亭代侯。二十一年。坐事国人过律。孝文後三年。夺侯。国除。\\
+\hspace*{2em}蒯成侯緤者。沛人也。姓周氏。常为高祖参乘。以舍人从起沛。至霸上。西入蜀。汉。还定三秦。食邑池阳。东绝甬道。从出度平阴。遇淮阴侯兵襄国。军乍利乍不利。终无离上心。以緤为信武侯。食邑三千三百户。高祖十二年。以緤为蒯成侯。除前所食邑。\\
+\hspace*{2em}上欲自击陈豨。蒯成侯泣曰。﹁始秦攻破天下。未尝自行。今上常自行。是为无人可使者乎。﹂上以为﹁爱我﹂。赐入殿门不趋。杀人不死。\\
+\hspace*{2em}至孝文五年。緤以寿终。谥为贞侯。子昌代侯。有罪。国除。至孝景中二年。封緤子居代侯。至元鼎三年。居为太常。有罪。国除。\\
+\hspace*{2em}太史公曰。阳陵侯傅宽。信武侯靳歙皆高爵。从高祖起山东。攻项籍。诛杀名将。破军降城以十数。未尝困辱。此亦天授也。蒯成侯周緤操心坚正。身不见疑。上欲有所之。未尝不垂涕。此有伤心者然。可谓笃厚君子矣。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 阳陵。信武。结发从汉。动叶人谋。\hfil}\linebreak
+\hbox to \hsize{\hfil 功实天赞。定齐破项。我军常冠。蒯成委质。\hfil}\linebreak
+\hbox to \hsize{\hfil 夷险不乱。主上称忠。人臣鸧腕。\hfil}%
+\par}
+\end{document}

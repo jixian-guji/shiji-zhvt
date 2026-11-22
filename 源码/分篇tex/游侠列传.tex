@@ -1,0 +1,180 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[游侠列传]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{游侠列传}{卷一百二十四~游侠列传第六十四}
+\hspace*{2em}韩子曰。﹁儒以文乱法。而侠以武犯禁。﹂二者皆讥。而学士多称于世云。至如以术取宰相卿大夫。辅翼其世主。功名俱着于春秋。固无可言者。及若季次。原宪。闾巷人也。读书怀独行君子之德。义不苟合当世。当世亦笑之。故季次。原宪终身空室蓬户。褐衣疏食不厌。死而已四百馀年。而弟子志之不倦。今游侠。其行虽不轨于正义。然其言必信。其行必果。已诺必诚。不爱其躯。赴士之厄困。既已存亡死生矣。而不矜其能。羞伐其德。盖亦有足多者焉。\\
+\hspace*{2em}且缓急。人之所时有也。太史公曰。昔者虞舜窘于井廪。伊尹负于鼎俎。傅说匿于傅险。吕尚困于棘津。夷吾桎梏。百里饭牛。仲尼畏匡。菜色陈。蔡。此皆学士所谓有道仁人也。犹然遭此菑。况以中材而涉乱世之末流乎。其遇害何可胜道哉。\\
+\hspace*{2em}鄙人有言曰。﹁何知仁义。已飨其利者为有德。﹂故伯夷丑周。饿死首阳山。而文武不以其故贬王。跖。蹻暴戾。其徒诵义无穷。由此观之。﹁窃钩者诛。窃国者侯。侯之门仁义存﹂。非虚言也。\\
+\hspace*{2em}今拘学或抱咫尺之义。久孤于世。岂若卑论侪俗。与世沉浮而取荣名哉。而布衣之徒。设取予然诺。千里诵义。为死不顾世。此亦有所长。非苟而已也。故士穷窘而得委命。此岂非人之所谓贤豪间者邪。诚使乡曲之侠。予季次。原宪比权量力。效功于当世。不同日而论矣。要以功见言信。侠客之义又曷可少哉。\\
+\hspace*{2em}古布衣之侠。靡得而闻已。近世延陵。孟尝。春申。平原。信陵之徒。皆因王者亲属。藉于有土卿相之富厚。招天下贤者。显名诸侯。不可谓不贤者矣。比如顺风而呼。声非加疾。其埶激也。至如闾巷之侠。修行砥名。声施于天下。莫不称贤。是为难耳。然儒。墨皆排摈不载。自秦以前。匹夫之侠。湮灭不见。余甚恨之。以余所闻。汉兴有朱家。田仲。王公。剧孟。郭解之徒。虽时扞当世之文罔。然其私义廉絜退让。有足称者。名不虚立。士不虚附。至如朋党宗强比周。设财役贫。豪暴侵凌孤弱。恣欲自快。游侠亦丑之。余悲世俗不察其意。而猥以朱家。郭解等令与暴豪之徒同类而共笑之也。\\
+\hspace*{2em}鲁朱家者。与高祖同时。鲁人皆以儒教。而朱家用侠闻。所藏活豪士以百数。其馀庸人不可胜言。然终不伐其能。歆其德。诸所尝施。唯恐见之。振人不赡。先从贫贱始。家无馀财。衣不完采。食不重味。乘不过軥牛。专趋人之急。甚己之私。既阴脱季布将军之厄戹。及布尊贵。终身不见也。自关以东。莫不延颈原交焉。\\
+\hspace*{2em}楚田仲以侠闻。喜剑。父事朱家。自以为行弗及。田仲已死。而雒阳有剧孟。周人以商贾为资。而剧孟以任侠显诸侯。吴楚反时。条侯为太尉。乘传车将至河南。得剧孟。喜曰。﹁吴楚举大事而不求孟。吾知其无能为已矣。﹂天下骚动。宰相得之若得一敌国云。剧孟行大类朱家。而好博。多少年之戏。然剧孟母死。自远方送丧盖千乘。及剧孟死。家无馀十金之财。而符离人王孟亦以侠称江淮之间。\\
+\hspace*{2em}是时济南瞷氏。陈周庸亦以豪闻。景帝闻之。使使尽诛此属。其后代诸白。梁韩无辟。阳翟薛兄。陕韩孺纷纷复出焉。\\
+\hspace*{2em}郭解。轵人也。字翁伯。善相人者许负外孙也。解父以任侠。孝文时诛死。解为人短小精悍。不饮酒。少时阴贼。慨不快意。身所杀甚众。以躯借交报仇。藏命作奸剽攻。休铸钱掘冢。固不可胜数。适有天幸。窘急常得脱。若遇赦。及解年长。更折节为俭。以德报怨。厚施而薄望。然其自喜为侠益甚。既已振人之命。不矜其功。其阴贼着于心。卒发于睚眦如故云。而少年慕其行。亦辄为报仇。不使知也。解姊子负解之势。与人饮。使之嚼。非其任。强必灌之。人怒。拔刀刺杀解姊子。亡去。解姊怒曰。﹁以翁伯之义。人杀吾子。贼不得。﹂弃其尸于道。弗葬。欲以辱解。解使人微知贼处。贼窘自归。具以实告解。解曰。﹁公杀之固当。吾儿不直。﹂遂去其贼。罪其姊子。乃收而葬之。诸公闻之。皆多解之义。益附焉。\\
+\hspace*{2em}解出入。人皆避之。有一人独箕倨视之。解遣人问其名姓。客欲杀之。解曰。﹁居邑屋至不见敬。是吾德不修也。彼何罪。﹂乃阴属尉史曰。﹁是人。吾所急也。至践更时脱之。﹂每至践更。数过。吏弗求。怪之。问其故。乃解使脱之。箕踞者乃肉袒谢罪。少年闻之。愈益慕解之行。\\
+\hspace*{2em}雒阳人有相仇者。邑中贤豪居间者以十数。终不听。客乃见郭解。解夜见仇家。仇家曲听解。解乃谓仇家曰。﹁吾闻雒阳诸公在此间。多不听者。今子幸而听解。解柰何乃从他县夺人邑中贤大夫权乎。﹂乃夜去。不使人知。曰。﹁且无用。待我去。令雒阳豪居其间。乃听之。﹂\\
+\hspace*{2em}解执恭敬。不敢乘车入其县廷。之旁郡国。为人请求事。事可出。出之。不可者。各厌其意。然后乃敢尝酒食。诸公以故严重之。争为用。邑中少年及旁近县贤豪。夜半过门常十馀车。请得解客舍养之。\\
+\hspace*{2em}及徙豪富茂陵也。解家贫。不中訾。吏恐。不敢不徙。卫将军为言。﹁郭解家贫不中徙。﹂上曰。﹁布衣权至使将军为言。此其家不贫。﹂解家遂徙。诸公送者出千馀万。轵人杨季主子为县掾。举徙解。解兄子断杨掾头。由此杨氏与郭氏为仇。\\
+\hspace*{2em}解入关。关中贤豪知与不知。闻其声。争交驩解。解为人短小。不饮酒。出未尝有骑。已又杀杨季主。杨季主家上书。人又杀之阙下。上闻。乃下吏捕解。解亡。置其母家室夏阳。身至临晋。临晋籍少公素不知解。解冒。因求出关。籍少公已出解。解转入太原。所过辄告主人家。吏逐之。迹至籍少公。少公自杀。口绝。久之。乃得解。穷治所犯。为解所杀。皆在赦前。轵有儒生侍使者坐。客誉郭解。生曰。﹁郭解专以奸犯公法。何谓贤。﹂解客闻。杀此生。断其舌。吏以此责解。解实不知杀者。杀者亦竟绝。莫知为谁。吏奏解无罪。御史大夫公孙弘议曰。﹁解布衣为任侠行权。以睚眦杀人。解虽弗知。此罪甚于解杀之。当大逆无道。﹂遂族郭解翁伯。\\
+\hspace*{2em}自是之后。为侠者极众。敖而无足数者。然关中长安樊仲子。槐里赵王孙。长陵高公子。西河郭公仲。太原卤公孺。临淮儿长卿。东阳田君孺。虽为侠而逡逡有退让君子之风。至若北道姚氏。西道诸杜。南道仇景。东道赵他。羽公子。南阳赵调之徒。此盗跖居民间者耳。曷足道哉。此乃乡者朱家之羞也。\\
+\hspace*{2em}太史公曰。吾视郭解。状貌不及中人。言语不足采者。然天下无贤与不肖。知与不知。皆慕其声。言侠者皆引以为名。谚曰。﹁人貌荣名。岂有既乎。﹂於戏。惜哉。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 游侠豪倨。藉藉有声。权行州里。力折公卿。\hfil}\linebreak
+\hbox to \hsize{\hfil 朱家脱季。剧孟定倾。急人之难。免雠于更。\hfil}\linebreak
+\hbox to \hsize{\hfil 伟哉翁伯。人貌荣名。\hfil}%
+\par}
+\end{document}

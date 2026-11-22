@@ -1,0 +1,174 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[蒙恬列传]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{蒙恬列传}{卷八十八~蒙恬列传第二十八}
+\hspace*{2em}蒙恬者。其先齐人也。恬大父蒙骜。自齐事秦昭王。官至上卿。秦庄襄王元年。蒙骜为秦将。伐韩。取成皋。荥阳。作置三川郡。二年。蒙骜攻赵。取三十七城。始皇三年。蒙骜攻韩。取十三城。五年。蒙骜攻魏。取二十城。作置东郡。始皇七年。蒙骜卒。骜子曰武。武子曰恬。恬尝书狱典文学。始皇二十三年。蒙武为秦裨将军。与王翦攻楚。大破之。杀项燕。二十四年。蒙武攻楚。虏楚王。蒙恬弟毅。\\
+\hspace*{2em}始皇二十六年。蒙恬因家世得为秦将。攻齐。大破之。拜为内史。秦已并天下。乃使蒙恬将三十万众北逐戎狄。收河南。筑长城。因地形。用制险塞。起临洮。至辽东。延袤万馀里。於是渡河。据阳山。逶蛇而北。暴师於外十馀年。居上郡。是时蒙恬威振匈奴。始皇甚尊宠蒙氏。信任贤之。而亲近蒙毅。位至上卿。出则参乘。入则御前。恬任外事而毅常为内谋。名为忠信。故虽诸将相莫敢与之争焉。\\
+\hspace*{2em}赵高者。诸赵疏远属也。赵高昆弟数人。皆生隐宫。其母被刑僇。世世卑贱。秦王闻高彊力。通於狱法。举以为中车府令。高既私事公子胡亥。喻之决狱。高有大罪。秦王令蒙毅法治之。毅不敢阿法。当高罪死。除其宦籍。帝以高之敦於事也。赦之。复其官爵。\\
+\hspace*{2em}始皇欲游天下。道九原。直抵甘泉。乃使蒙恬通道。自九原抵甘泉。巉山堙谷。千八百里。道未就。\\
+\hspace*{2em}始皇三十七年冬。行出游会稽。并海上。北走琅邪。道病。使蒙毅还祷山川。未反。始皇至沙丘崩。祕之。群臣莫知。是时丞相李斯。公子胡亥。中车府令赵高常从。高雅得幸於胡亥。欲立之。又怨蒙毅法治之而不为己也。因有贼心。乃与丞相李斯。公子胡亥阴谋。立胡亥为太子。太子已立。遣使者以罪赐公子扶苏。蒙恬死。扶苏已死。蒙恬疑而复请之。使者以蒙恬属吏。更置。胡亥以李斯舍人为护军。使者还报。胡亥已闻扶苏死。即欲释蒙恬。赵高恐蒙氏复贵而用事。怨之。\\
+\hspace*{2em}毅还至。赵高因为胡亥忠计。欲以灭蒙氏。乃言曰。﹁臣闻先帝欲举贤立太子久矣。而毅谏曰﹃不可﹄。若知贤而俞弗立。则是不忠而惑主也。以臣愚意。不若诛之。﹂胡亥听而系蒙毅於代。前已囚蒙恬於阳周。丧至咸阳。已葬。太子立为二世皇帝。而赵高亲近。日夜毁恶蒙氏。求其罪过。举劾之。\\
+\hspace*{2em}子婴进谏曰。﹁臣闻故赵王迁杀其良臣李牧而用颜聚。燕王喜阴用荆轲之谋而倍秦之约。齐王建杀其故世忠臣而用后胜之议。此三君者。皆各以变古者失其国而殃及其身。今蒙氏。秦之大臣谋士也。而主欲一旦弃去之。臣窃以为不可。臣闻轻虑者不可以治国。独智者不可以存君。诛杀忠臣而立无节行之人。是内使群臣不相信而外使斗士之意离也。臣窃以为不可。﹂\\
+\hspace*{2em}胡亥不听。而遣御史曲宫乘传之代。令蒙毅曰。﹁先主欲立太子而卿难之。今丞相以卿为不忠。罪及其宗。朕不忍。乃赐卿死。亦甚幸矣。卿其图之。﹂毅对曰。﹁以臣不能得先主之意。则臣少宦。顺幸没世。可谓知意矣。以臣不知太子之能。则太子独从。周旋天下。去诸公子绝远。臣无所疑矣。夫先主之举用太子。数年之积也。臣乃何言之敢谏。何虑之敢谋。非敢饰辞以避死也。为羞累先主之名。原大夫为虑焉。使臣得死情实。且夫顺成全者。道之所贵也。刑杀者。道之所卒也。昔者秦穆公杀三良而死。罪百里奚而非其罪也。故立号曰﹃缪﹄。昭襄王杀武安君白起。楚平王杀伍奢。吴王夫差杀伍子胥。此四君者。皆为大失。而天下非之。以其君为不明。以是籍於诸侯。故曰﹃用道治者不杀无罪。而罚不加於无辜﹄。唯大夫留心。﹂使者知胡亥之意。不听蒙毅之言。遂杀之。\\
+\hspace*{2em}二世又遣使者之阳周。令蒙恬曰。﹁君之过多矣。而卿弟毅有大罪。法及内史。﹂恬曰。﹁自吾先人。及至子孙。积功信於秦三世矣。今臣将兵三十馀万。身虽囚系。其势足以倍畔。然自知必死而守义者。不敢辱先人之教。以不忘先主也。昔周成王初立。未离襁褓。周公旦负王以朝。卒定天下。及成王有病甚殆。公旦自揃其爪以沈於河。曰。﹃王未有识。是旦执事。有罪殃。旦受其不祥。﹄乃书而藏之记府。可谓信矣。及王能治国。有贼臣言。﹃周公旦欲为乱久矣。王若不备。必有大事。﹄王乃大怒。周公旦走而奔於楚。成王观於记府。得周公旦沈书。乃流涕曰。﹃孰谓周公旦欲为乱乎。﹄杀言之者而反周公旦。故周书曰﹃必参而伍之﹄。今恬之宗。世无二心。而事卒如此。是必孽臣逆乱。内陵之道也。夫成王失而复振则卒昌。桀杀关龙逢。纣杀王子比干而不悔。身死则国亡。臣故曰过可振而谏可觉也。察於参伍。上圣之法也。凡臣之言。非以求免於咎也。将以谏而死。原陛下为万民思从道也。﹂使者曰。﹁臣受诏行法於将军。不敢以将军言闻於上也。﹂蒙恬喟然太息曰。﹁我何罪於天。无过而死乎。﹂良久。徐曰。﹁恬罪固当死矣。起临洮属之辽东。城巉万馀里。此其中不能无绝地脉哉。此乃恬之罪也。﹂乃吞药自杀。\\
+\hspace*{2em}太史公曰。吾適北边。自直道归。行观蒙恬所为秦筑长城亭障。堑山堙谷。通直道。固轻百姓力矣。夫秦之初灭诸侯。天下之心未定。痍伤者未瘳。而恬为名将。不以此时彊谏。振百姓之急。养老存孤。务修众庶之和。而阿意兴功。此其兄弟遇诛。不亦宜乎。何乃罪地脉哉。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 蒙氏秦将。内史忠贤。长城首筑。万里安边。\hfil}\linebreak
+\hbox to \hsize{\hfil 赵高矫制。扶苏死焉。绝地何罪。劳人是稥。\hfil}\linebreak
+\hbox to \hsize{\hfil 呼天欲诉。三代良然。\hfil}%
+\par}
+\end{document}

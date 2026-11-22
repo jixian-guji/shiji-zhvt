@@ -1,0 +1,184 @@
+\documentclass{zhvt-classic}
+
+% 使用本地源流明体（GenRyuMin2 TW）按文件路径加载，不依赖系统字体名
+% 版框（内框／界栏／书口侧栏／鱼尾）改用与版心印章同一印泥棕色：
+%   印章图片 yshs.png 实色 = RGB(135,68,52) = HTML 874434
+\usepackage{xcolor}
+\usepackage{tikz}
+% sealbrown 双注册：xcolor 供 TikZ/pgf，L3 供 cls 版框
+\definecolor{sealbrown}{HTML}{874434}
+\ExplSyntaxOn
+\color_set:nnn { sealbrown } { HTML } { 874434 }
+\ExplSyntaxOff
+
+\zhvtset{
+  grid color       = sealbrown,
+  main font        = GenRyuMin2TW-SB,
+  main font path   = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+jiazhu font      = GenRyuMin2TW-M,
+  jiazhu font path = C:/Users/Administrator/texmf/fonts/opentype/public/GenRyuMin2TW/,
+  % 页码框容纳 4 字：正常页「九十七」+前置空 1 格=4 行恰好；
+  % 100+ 页「一百零一」共 5 行超出，末字「一/二/三」被框裁掉（2026-10-04 实测），故放宽到 5
+  shukou page number chars = 5,
+  % 书口书名框高从默认 6 字减到 4 字，把省出的 2 字高拨给 chapter 框，
+  % 使 6 字书名+卷名放进 9 字高的 chapter 框后不再压线（2026-10-05）
+  shukou title chars = 4,
+}
+
+\title{史记}[乐毅列传]
+\author{汉·司马迁}
+\maker{闲叟漫记·重製}
+
+
+% ===== 索隐述赞样式（2026-11-08 四次定稿 · 愚大人亲手改定参数）=====
+% ⚠ 竖排前提：自定义字体家族必须带 RawFeature={vertical:+vert}；
+%   simhei.ttf 加 +vhal 会整体加载失败静默回退，只写 +vert；simfang 同理。
+\newCJKfontfamily{\shuzanfont}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simhei.ttf}
+\newCJKfontfamily{\shuzanbody}[Path=C:/Windows/Fonts/,RawFeature={vertical:+vert}]{simfang.ttf}
+% 题头：152x30pt 圆角 6pt 棕底白字；baseline (0,2) 使整框落入界行格子不压版框线；
+% 白字节点 x 不补偿、y +8.2pt（像素级墨迹实测 dx/dy≈0，L/R 留白约 20pt）。
+\newcommand{\shuzanhead}[1]{%
+  \begin{tikzpicture}[baseline={(0,2)}]
+    \fill[sealbrown, rounded corners=6pt]
+      (-76pt,-15pt) rectangle (76pt,15pt);
+    \node[text=white, inner sep=0pt, anchor=center] at (0pt,8.2pt)
+      {\shuzanfont\fontsize{23}{23}\selectfont #1};
+  \end{tikzpicture}%
+}
+% ★ 修正书口卷名位置：chapter 框起始位置改回 cls 默认值，避免全局影响。
+%   只在每个卷首页通过 \juan 命令里的空命令微调该页位置（安全，不会跨页污染）。
+\ExplSyntaxOn
+\AtBeginDocument{
+  \dim_set:Nn \l__zhvt_shukou_chapter_title_start_dim
+    { \l__zhvt_shukou_title_height_dim + \l__zhvt_font_size_dim * 2 }
+  \dim_set:Nn \l__zhvt_shukou_page_number_start_dim
+    { \l__zhvt_shukou_chapter_title_start_dim + \l__zhvt_shukou_chapter_title_height_dim }
+}
+\ExplSyntaxOff
+
+\begin{document}
+
+% ★★ 版心（书口）排布覆写：把书名放到鱼尾之下（2026-10-04）
+%
+%   cls 默认版心自上而下：书名（title 静态框，在鱼尾之上）→ 鱼尾 → 篇名（chapter 动态框）→ 页码
+%   本模板改为：          鱼尾（位置不动）→ 书名 → 篇名 → 页码分割线 → 页码
+%
+%   手法：把 cls 放在 title 静态框里的书名，改放进 chapter 动态框（鱼尾之下）；
+%         title 静态框留空。书名取 \l__zhvt_title_str，即 \title{...} 的第一参数，
+%         所以换书时只改 \title，不必在此重复写书名。
+%
+%   ⚠ 三条必须遵守的写法（2026-10-04 实测）：
+%     ① 汉字必须用 \hbox{...} 包住。flowfram 会把框内容装进一个宽 14.4mm（= 一个 line_sep
+%        = 书口栏宽）的纵向 minipage 并按该宽度折行，而整页靠 PDF /Rotate 90 显示、
+%        框内文字本身不变向 —— 不包 \hbox 时「围炉夜话」4 字会被逐字折成 4 行，
+%        在版面上就成了横排 4 字并横向溢出版框。
+%     ② 竖排下**一个 \hbox 就是一整列**。书名与篇名要同处一列，必须放进同一个 \hbox；
+%        分成两个 \hbox 时，后一个会被当成新的一列、甩到隔壁栏去
+%        （实测「序」跑到书口栏外侧 14.4mm 的正文列上）。中间的 \quad 在框内是横向空白，
+%        显示出来正好是书名与篇名之间的纵向间隔。
+%     ③ ★ 内容盒要写成 **与框等宽的定宽盒** `\hbox to \l__zhvt_shukou_chapter_title_height_dim{…\hfil}`。
+%        实测：chapter 框是把内容盒沿纵向**居中**摆放的，内容宽度一变，书名就跟着漂：
+%        自然宽度的 \hbox（书名 38.4mm）落在 x=157.2mm，加篇名后（57.6mm）落在 x=152.4mm，
+%        目录页（无篇名）与正文页的书名就差半格。做成等宽盒后，无论有没有篇名，
+%        内容固定从框顶起排，实测两页均落在 x=142.8mm，不再漂。
+\ExplSyntaxOn
+% 把书口 chapter 框（书名+篇名）起始位置下移 1 字高，避免 4 字卷名顶到鱼尾
+% ⚠ cls 的 \__zhvt_calculate_dimensions: 在 \AtBeginDocument 里执行，会重算该 dim；
+%   必须把覆写挂到 begin document 之后，否则会被二次覆盖（2026-10-05 实测）。
+% (旧方案已移到导言区，直接修改 chapter 框起始位置)
+% 卷标题命令 #1=书口篇名(鱼尾) #2=正文卷名（含卷序，卷名内空格用 ~）
+%
+% ★★ 目录页两项修订（2026-10-05，愚大人指出）★★
+%   ① 页码起点统一对齐：
+%      原状 —— 目录项写成 \par\hspace{4em}卷名\hspace{4em}页码，页码起点 = 卷名实宽 + 4em。
+%      卷名实宽随字数变：「卷一~梁惠王上」6 字 +~、「卷七~离娄上」5 字 +~，
+%      差 1 个字位 → 卷七~卷十 4 条的页码整体比其余 10 条高 27.21pt（一个字），看着上下不齐。
+%      改法 —— 卷名补全角空格（宽 = 1 字 = 27.215pt）补足到 **7 字符位**再写进目录，
+%      14 条页码起点遂全部落在同一条竖线上（起点对齐；末字随页码字数自然参差）。
+%      ⚠ 只对目录里的副本 \l_tmpc_tl 补，正文卷名仍用 \l_tmpa_tl 原样 —— 正文像素不受影响。
+%   ② 卷名整体上移半字位：前导 \hspace 由 4em 改 3.5em。
+%      实测原状目录块在版框内偏下（天头留白 139.6pt / 地脚留白 110.7pt），
+%      上移 0.5em = 13.6pt 后上下基本均分，视觉居中。
+\NewDocumentCommand { \juan } { mm } {
+	\clearpage
+	\tl_set:Nn \l__zhvt_chapter_title_tl { #1 }
+	\tl_set:Nn \l_tmpa_tl { #2 }
+	\tl_set_eq:NN \l_tmpc_tl \l_tmpa_tl
+	\int_step_inline:nn { 7 - \str_count:n { #2 } }
+	  { \tl_put_right:Nn \l_tmpc_tl { 　 } }
+	\tl_set:Nx \l_tmpb_tl { \zhnum { page } }
+	\tl_put_left:Nn \l_tmpb_tl { \hspace { 4em } }
+	\tl_put_left:Nn \l_tmpb_tl { \l_tmpc_tl }
+	\tl_put_left:Nn \l_tmpb_tl { \par \hspace { 3.5em } }
+	\addtocontents { toc } { \l_tmpb_tl }
+	\skip_horizontal:n { \l__zhvt_font_size_dim * 4 }
+	\l_tmpa_tl
+	\par
+	\thispagestyle { empty }
+}
+\cs_set_protected:Npn \__zhvt_set_shukou_content: {
+	% ★ 鱼尾上方留白（title 静态框）嵌入闲叟钤印：
+	%   整页 /Rotate 90，故此处把图用 \rotatebox{90} 转正为竖章；
+	%   尺寸卡在版心条幅内（书内约 7mm 宽 × 33.8mm 高，留余量不压鱼尾）。
+	\setstaticcontents * { title } {
+		\vbox_to_ht:nn { \l__zhvt_baseline_skip_dim } {
+			\vskip 14.2pt
+			\hbox_to_wd:nn { \l__zhvt_shukou_title_height_dim } {
+				\hfil
+				\rotatebox [ origin = c ] { 90 } { \includegraphics [ width = 7mm , height = 33.8mm ] { yshs.png } }
+				\hfil
+			}
+		}
+	}
+% ★ 版心（书口）统一改法（2026-11-16 愚大人定）：18pt＋框内居中＋书口文字同版框色
+%   ① 原 27.2pt 时 7 字长篇名（如「廉颇蔺相如列传」）末字溢出 chapter 框、压住页码；
+%      改 \fontsize{18pt}{18pt}，前后 \hfil 令字串在框内居中（不随篇名字数漂移）。
+%   ② \vbox{\vskip 8.2pt} 定量下移，抵消缩字号后栏宽方向 8.2pt 上偏（像素实测 y 中心 543.3 = 原版）。
+%      ⚠ \raisebox / \vspace* 在 flowfram 框内无效；换字号须同步换补偿：16pt→10.1、19pt→7.4。
+%   ③ chapter 与 page~number 均置 \color{sealbrown}（HTML 874434），与版框／界行同色；正文仍黑。
+%   ⚠ 页码字位、钤印、鱼尾、界行、正文一律未动；五部合订本同此口径。
+	\setdynamiccontents * { chapter }
+	{ \color{sealbrown} \vbox { \vskip 8.2pt \hbox to \l__zhvt_shukou_chapter_title_height_dim
+		{ \hfil \fontsize{18pt}{18pt}\selectfont \l__zhvt_title_str \quad \l__zhvt_chapter_title_tl \hfil } } }
+	\setdynamiccontents * { page~number } { \color{sealbrown} \quad \zhnum { page } }
+}
+\__zhvt_set_shukou_content:
+\ExplSyntaxOff
+
+\maketitle
+
+% 单篇，无多卷目录，不渲染目录页
+
+\juan{乐毅列传}{卷八十~乐毅列传第二十}
+\hspace*{2em}乐毅者。其先祖曰乐羊。乐羊为魏文侯将。伐取中山。魏文侯封乐羊以灵寿。乐羊死。葬於灵寿。其後子孙因家焉。中山复国。至赵武灵王时复灭中山。而乐氏後有乐毅。\\
+\hspace*{2em}乐毅贤。好兵。赵人举之。及武灵王有沙丘之乱。乃去赵適魏。闻燕昭王以子之之乱而齐大败燕。燕昭王怨齐。未尝一日而忘报齐也。燕国小。辟远。力不能制。於是屈身下士。先礼郭隗以招贤者。乐毅於是为魏昭王使於燕。燕王以客礼待之。乐毅辞让。遂委质为臣。燕昭王以为亚卿。久之。\\
+\hspace*{2em}当是时。齐湣王彊。南败楚相唐眛於重丘。西摧三晋於观津。遂与三晋击秦。助赵灭中山。破宋。广地千馀里。与秦昭王争重为帝。已而复归之。诸侯皆欲背秦而服於齐。湣王自矜。百姓弗堪。於是燕昭王问伐齐之事。乐毅对曰。﹁齐。霸国之馀业也。地大人众。未易独攻也。王必欲伐之。莫如与赵及楚。魏。﹂於是使乐毅约赵惠文王。别使连楚。魏。令赵嚪说秦以伐齐之利。诸侯害齐湣王之骄暴。皆争合从与燕伐齐。乐毅还报。燕昭王悉起兵。使乐毅为上将军。赵惠文王以相国印授乐毅。乐毅於是并护赵。楚。韩。魏。燕之兵以伐齐。破之济西。诸侯兵罢归。而燕军乐毅独追。至于临菑。齐湣王之败济西。亡走。保於莒。乐毅独留徇齐。齐皆城守。乐毅攻入临菑。尽取齐宝财物祭器输之燕。燕昭王大说。亲至济上劳军。行赏飨士。封乐毅於昌国。号为昌国君。於是燕昭王收齐卤获以归。而使乐毅复以兵平齐城之不下者。\\
+\hspace*{2em}乐毅留徇齐五岁。下齐七十馀城。皆为郡县以属燕。唯独莒。即墨未服。会燕昭王死。子立为燕惠王。惠王自为太子时尝不快於乐毅。及即位。齐之田单闻之。乃纵反间於燕。曰。﹁齐城不下者两城耳。然所以不早拔者。闻乐毅与燕新王有隙。欲连兵且留齐。南面而王齐。齐之所患。唯恐他将之来。﹂於是燕惠王固已疑乐毅。得齐反间。乃使骑劫代将。而召乐毅。乐毅知燕惠王之不善代之。畏诛。遂西降赵。赵封乐毅於观津。号曰望诸君。尊宠乐毅以警动於燕。齐。\\
+\hspace*{2em}齐田单後与骑劫战。果设诈诳燕军。遂破骑劫於即墨下。而转战逐燕。北至河上。尽复得齐城。而迎襄王於莒。入于临菑。\\
+\hspace*{2em}燕惠王後悔使骑劫代乐毅。以故破军亡将失齐。又怨乐毅之降赵。恐赵用乐毅而乘燕之弊以伐燕。燕惠王乃使人让乐毅。且谢之曰。﹁先王举国而委将军。将军为燕破齐。报先王之雠。天下莫不震动。寡人岂敢一日而忘将军之功哉。会先王弃群臣。寡人新即位。左右误寡人。寡人之使骑劫代将军。为将军久暴露於外。故召将军且休。计事。将军过听。以与寡人有隙。遂捐燕归赵。将军自为计则可矣。而亦何以报先王之所以遇将军之意乎。﹂乐毅报遗燕惠王书曰。\\
+\hspace*{2em}臣不佞。不能奉承王命。以顺左右之心。恐伤先王之明。有害足下之义。故遁逃走赵。今足下使人数之以罪。臣恐侍御者不察先王之所以畜幸臣之理。又不白臣之所以事先王之心。故敢以书对。\\
+\hspace*{2em}臣闻贤圣之君不以禄私亲。其功多者赏之。其能当者处之。故察能而授官者。成功之君也。论行而结交者。立名之士也。臣窃观先王之举也。见有高世主之心。故假节於魏。以身得察於燕。先王过举。厕之宾客之中。立之群臣之上。不谋父兄。以为亚卿。臣窃不自知。自以为奉令承教。可幸无罪。故受令而不辞。\\
+\hspace*{2em}先王命之曰。﹁我有积怨深怒於齐。不量轻弱。而欲以齐为事。﹂臣曰。﹁夫齐。霸国之馀业而最胜之遗事也。练於兵甲。习於战攻。王若欲伐之。必与天下图之。与天下图之。莫若结於赵。且又淮北。宋地。楚魏之所欲也。赵若许而约四国攻之。齐可大破也。﹂先王以为然。具符节南使臣於赵。顾反命。起兵击齐。以天之道。先王之灵。河北之地随先王而举之济上。济上之军受命击齐。大败齐人。轻卒锐兵。长驱至国。齐王遁而走莒。仅以身免。珠玉财宝车甲珍器尽收入于燕。齐器设於宁台。大吕陈於元英。故鼎反乎室。蓟丘之植植於汶篁。自五伯已来。功未有及先王者也。先王以为慊於志。故裂地而封之。使得比小国诸侯。臣窃不自知。自以为奉命承教。可幸无罪。是以受命不辞。\\
+\hspace*{2em}臣闻贤圣之君。功立而不废。故著於春秋。蚤知之士。名成而不毁。故称於後世。若先王之报怨雪耻。夷万乘之彊国。收八百岁之蓄积。及至弃群臣之日。馀教未衰。执政任事之臣。脩法令。慎庶孽。施及乎萌隶。皆可以教後世。\\
+\hspace*{2em}臣闻之。善作者不必善成。善始者不必善终。昔伍子胥说听於阖闾。而吴王远迹至郢。夫差弗是也。赐之鸱夷而浮之江。吴王不寤先论之可以立功。故沈子胥而不悔。子胥不蚤见主之不同量。是以至於入江而不化。\\
+\hspace*{2em}夫免身立功。以明先王之迹。臣之上计也。离毁辱之诽谤。堕先王之名。臣之所大恐也。临不测之罪。以幸为利。义之所不敢出也。\\
+\hspace*{2em}臣闻古之君子。交绝不出恶声。忠臣去国。不絜其名。臣虽不佞。数奉教於君子矣。恐侍御者之亲左右之说。不察疏远之行。故敢献书以闻。唯君王之留意焉。\\
+\hspace*{2em}於是燕王复以乐毅子乐间为昌国君。而乐毅往来复通燕。燕。赵以为客卿。乐毅卒於赵。\\
+\hspace*{2em}乐间居燕三十馀年。燕王喜用其相栗腹之计。欲攻赵。而问昌国君乐间。乐间曰。﹁赵。四战之国也。其民习兵。伐之不可。﹂燕王不听。遂伐赵。赵使廉颇击之。大破栗腹之军於鄗。禽栗腹。乐乘。乐乘者。乐间之宗也。於是乐间奔赵。赵遂围燕。燕重割地以与赵和。赵乃解而去。\\
+\hspace*{2em}燕王恨不用乐间。乐间既在赵。乃遗乐间书曰。﹁纣之时。箕子不用。犯谏不怠。以冀其听。商容不达。身祇辱焉。以冀其变。及民志不入。狱囚自出。然後二子退隐。故纣负桀暴之累。二子不失忠圣之名。何者。其忧患之尽矣。今寡人虽愚。不若纣之暴也。燕民虽乱。不若殷民之甚也。室有语。不相尽。以告邻里。二者。寡人不为君取也。﹂\\
+\hspace*{2em}乐间。乐乘怨燕不听其计。二人卒留赵。赵封乐乘为武襄君。\\
+\hspace*{2em}其明年。乐乘。廉颇为赵围燕。燕重礼以和。乃解。後五岁。赵孝成王卒。襄王使乐乘代廉颇。廉颇攻乐乘。乐乘走。廉颇亡入魏。其後十六年而秦灭赵。\\
+\hspace*{2em}其後二十馀年。高帝过赵。问。﹁乐毅有後世乎。﹂对曰。﹁有乐叔。﹂高帝封之乐卿。号曰华成君。华成君。乐毅之孙也。而乐氏之族有乐瑕公。乐臣公。赵且为秦所灭。亡之齐高密。乐臣公善修黄帝。老子之言。显闻於齐。称贤师。\\
+\hspace*{2em}太史公曰。始齐之蒯通及主父偃读乐毅之报燕王书。未尝不废书而泣也。乐臣公学黄帝。老子。其本师号曰河上丈人。不知其所出。河上丈人教安期生。安期生教毛翕公。毛翕公教乐瑕公。乐瑕公教乐臣公。乐臣公教盖公。盖公教於齐高密。胶西。为曹相国师。\\
+
+% ===== 索隐述赞（司马贞《史记索隐》）· 统一样式 =====
+% 题头「索隐述赞曰」五字并入反白框；正文每四句一列，定宽盒 \hfil 居列中；
+% \fontsize{24}{41} 列距对齐全书界行（121+41k）；\clearpage 使述赞独占一页。
+\clearpage
+\shuzanhead{索隐述赞曰}\linebreak
+{\shuzanbody\fontsize{24}{41}\selectfont
+\hbox to \hsize{\hfil 昌国忠谠。人臣所无。连兵五国。济西为墟。\hfil}\linebreak
+\hbox to \hsize{\hfil 燕王受间。空闻报书。义士慷慨。明君轼闾。\hfil}\linebreak
+\hbox to \hsize{\hfil 间。乘继将。芳规不渝。\hfil}%
+\par}
+\end{document}
