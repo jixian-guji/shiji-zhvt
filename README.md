@@ -1,7 +1,7 @@
 # 史记 · 竖排古籍排版工程
 
 > 本仓库属 **[集贤古籍工程](https://github.com/jixian-guji)**（`jixian-guji` 组织）的样板工程之一。
-> 参与排版 / 验收 / 提交规范见工程级 [CONTRIBUTING.md](https://github.com/jixian-guji#readme)。
+> 参与排版 / 验收 / 提交规范见 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [工程总览](工程总览.md)。
 
 用 XeLaTeX + `xeCJK` + `flowfram` 排版的《史记》竖排本。成品为筒子页（双半叶）装帧风格：竖排右起、棕色版框与书口、书名章题合并于鱼尾下、钤印、句读圆圈。
 
