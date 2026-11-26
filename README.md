@@ -54,5 +54,6 @@ xelatex -cnf-line=pool_size=12000000 -interaction=nonstopmode -halt-on-error -jo
 
 ## 底本与版权
 
-- 底本 `.txt` 未随仓库分发（现代整理本有著作权），重编请自备对应文本。
-- 《史记》原文为公有领域；排版模板版权见 `源码/LICENSE`。
+- 《史记》原文为公有领域；仓库 `.tex` 中所录文字系以公版原文为底、由本项目独立整理句读，未复制任何现代点校出版物的文本与标点。
+- 本项目的句读、排版源码与成品 PDF 以 CC BY-NC-SA 4.0 授权发布，详见根目录 [LICENSE](LICENSE)。
+- `源码/zhvt-classic.cls` 版权归原作者所有，按其自有声明授权，见 `源码/LICENSE`。
